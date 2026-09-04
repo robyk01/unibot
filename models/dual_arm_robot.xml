@@ -1,0 +1,223 @@
+<mujoco model="unibot_dual_arm">
+  <compiler angle="radian" coordinate="local" meshdir="assets" autolimits="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81" iterations="50" solver="Newton" cone="elliptic" integrator="implicitfast"/>
+
+  <visual>
+    <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
+    <quality shadowsize="2048"/>
+    <global offwidth="640" offheight="480"/>
+  </visual>
+
+  <default>
+    <joint damping="1.5" armature="0.05" frictionloss="0.05"/>
+    <geom condim="4" friction="1.2 0.005 0.0001" density="500"/>
+    <position kp="600" kv="0" forcelimited="false"/>
+  </default>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.30 0.35 0.42" rgb2="0.12 0.14 0.18" width="512" height="512"/>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1="0.20 0.22 0.26" rgb2="0.14 0.15 0.18"/>
+    <material name="grid_mat" texture="grid" texrepeat="8 8" reflectance="0.08" roughness="0.7"/>
+    <material name="robot_metal" rgba="0.30 0.33 0.38 1.0" specular="0.8" shininess="0.7"/>
+    <material name="robot_accent" rgba="0.15 0.60 0.98 1.0" specular="0.6" shininess="0.5"/>
+    <material name="robot_link" rgba="0.85 0.88 0.92 1.0" specular="0.5" shininess="0.4"/>
+    <material name="gripper_pad" rgba="0.10 0.10 0.10 1.0" specular="0.1" shininess="0.1"/>
+    <material name="table_wood" rgba="0.50 0.35 0.22 1.0" specular="0.2" shininess="0.2"/>
+    <material name="red_mat" rgba="0.95 0.15 0.15 1.0" specular="0.6" shininess="0.5"/>
+    <material name="blue_mat" rgba="0.15 0.45 0.98 1.0" specular="0.6" shininess="0.5"/>
+    <material name="green_mat" rgba="0.15 0.85 0.30 1.0" specular="0.6" shininess="0.5"/>
+  </asset>
+
+  <worldbody>
+    <!-- Ground Floor -->
+    <geom name="floor" type="plane" size="4 4 0.1" material="grid_mat"/>
+
+    <!-- Balanced Studio Lighting -->
+    <light directional="true" pos="0 0 4.5" dir="0 0 -1" diffuse="0.75 0.75 0.75" specular="0.2 0.2 0.2"/>
+    <light pos="-1.5 -1.0 3.0" dir="0.5 0.5 -1" diffuse="0.45 0.45 0.50" specular="0.15 0.15 0.15"/>
+    <light pos="1.5 1.0 3.0" dir="-0.5 -0.5 -1" diffuse="0.40 0.40 0.45" specular="0.15 0.15 0.15"/>
+
+    <!-- High Surveillance Observation Cameras -->
+    <camera name="cam_left_high" pos="-0.55 -0.75 1.45" xyaxes="0.8 0.6 0 -0.3 0.4 0.87" fovy="58"/>
+    <camera name="cam_right_high" pos="0.55 -0.75 1.45" xyaxes="0.8 -0.6 0 0.3 0.4 0.87" fovy="58"/>
+
+    <!-- Work Table on Floor (Top at Z = 0.465 m) -->
+    <body name="work_table" pos="0 0.55 0">
+      <geom name="table_top" type="box" size="0.55 0.35 0.015" pos="0 0 0.45" material="table_wood"/>
+      <geom name="leg1" type="cylinder" size="0.025 0.225" pos="0.50 0.30 0.225" material="robot_metal"/>
+      <geom name="leg2" type="cylinder" size="0.025 0.225" pos="-0.50 0.30 0.225" material="robot_metal"/>
+      <geom name="leg3" type="cylinder" size="0.025 0.225" pos="0.50 -0.30 0.225" material="robot_metal"/>
+      <geom name="leg4" type="cylinder" size="0.025 0.225" pos="-0.50 -0.30 0.225" material="robot_metal"/>
+    </body>
+
+    <!-- Manipulable Objects on Table Surface (Z = 0.49 m) -->
+    <body name="red_block" pos="-0.15 0.50 0.49">
+      <freejoint name="red_block_joint"/>
+      <geom name="red_cube" type="box" size="0.025 0.025 0.025" material="red_mat" mass="0.08"/>
+    </body>
+
+    <body name="blue_block" pos="0.15 0.50 0.49">
+      <freejoint name="blue_block_joint"/>
+      <geom name="blue_cube" type="box" size="0.025 0.025 0.025" material="blue_mat" mass="0.08"/>
+    </body>
+
+    <body name="green_block" pos="0.0 0.60 0.49">
+      <freejoint name="green_block_joint"/>
+      <geom name="green_cylinder" type="cylinder" size="0.025 0.025" material="green_mat" mass="0.08"/>
+    </body>
+
+    <!-- Target Zones on Table -->
+    <site name="target_left_zone" pos="-0.30 0.55 0.466" type="box" size="0.06 0.06 0.001" rgba="0.95 0.2 0.2 0.5"/>
+    <site name="target_right_zone" pos="0.30 0.55 0.466" type="box" size="0.06 0.06 0.001" rgba="0.2 0.5 0.95 0.5"/>
+
+    <!-- ==================== ROBOT TORSO & BASE (Grounded at Z=0) ==================== -->
+    <body name="robot_base" pos="0 0 0">
+      <geom name="pedestal" type="cylinder" size="0.12 0.25" pos="0 0 0.25" material="robot_metal" contype="0" conaffinity="0"/>
+      <geom name="base_plate" type="cylinder" size="0.22 0.015" pos="0 0 0.015" material="robot_metal" contype="0" conaffinity="0"/>
+      <geom name="torso" type="box" size="0.16 0.12 0.16" pos="0 0 0.66" material="robot_accent" contype="0" conaffinity="0"/>
+      <geom name="chest_plate" type="box" size="0.14 0.09 0.12" pos="0 0.04 0.66" material="robot_metal" contype="0" conaffinity="0"/>
+      <geom name="neck" type="cylinder" size="0.04 0.04" pos="0 0 0.84" material="robot_metal" contype="0" conaffinity="0"/>
+      <geom name="head" type="sphere" size="0.08" pos="0 0 0.94" material="robot_metal" contype="0" conaffinity="0"/>
+      <geom name="visor" type="box" size="0.055 0.035 0.025" pos="0 0.06 0.94" material="robot_accent" contype="0" conaffinity="0"/>
+
+      <!-- ==================== LEFT ARM (7-DOF) ==================== -->
+      <body name="left_shoulder_yaw" pos="-0.22 0 0.76">
+        <joint name="left_j0" type="hinge" axis="0 0 1" range="-2.8 2.8"/>
+        <geom name="l_sh_yaw_geom" type="sphere" size="0.065" material="robot_accent" contype="0" conaffinity="0"/>
+
+        <body name="left_shoulder_pitch" pos="0 0 0">
+          <joint name="left_j1" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+          <geom name="l_sh_pitch_geom" type="cylinder" size="0.05 0.07" pos="0 0 -0.07" material="robot_metal" contype="0" conaffinity="0"/>
+
+          <body name="left_shoulder_roll" pos="0 0 -0.14">
+            <joint name="left_j2" type="hinge" axis="0 1 0" range="-2.8 2.8"/>
+            <geom name="l_upper_arm" type="capsule" size="0.045" fromto="0 0 0 0 0.04 -0.18" material="robot_link" contype="0" conaffinity="0"/>
+
+            <body name="left_elbow" pos="0 0.04 -0.22">
+              <joint name="left_j3" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+              <geom name="l_elb_geom" type="sphere" size="0.045" material="robot_accent" contype="0" conaffinity="0"/>
+
+              <body name="left_forearm_yaw" pos="0 0 0">
+                <joint name="left_j4" type="hinge" axis="0 0 1" range="-2.8 2.8"/>
+                <geom name="l_forearm" type="capsule" size="0.038" fromto="0 0 0 0 0.04 -0.16" material="robot_link" contype="0" conaffinity="0"/>
+
+                <body name="left_wrist_pitch" pos="0 0.04 -0.18">
+                  <joint name="left_j5" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+                  <geom name="l_wr_geom" type="sphere" size="0.035" material="robot_metal" contype="0" conaffinity="0"/>
+
+                  <body name="left_wrist_roll" pos="0 0 0">
+                    <joint name="left_j6" type="hinge" axis="0 1 0" range="-2.8 2.8"/>
+                    <geom name="l_hand_base" type="box" size="0.035 0.03 0.02" pos="0 0.02 -0.03" material="robot_accent" contype="0" conaffinity="0"/>
+
+                    <!-- Left Wrist Camera -->
+                    <camera name="cam_left_wrist" pos="0 0.06 -0.01" xyaxes="1 0 0 0 0.5 -0.86" fovy="65"/>
+
+                    <!-- Left End-Effector Tracking Site -->
+                    <site name="left_ee" pos="0 0.02 -0.09" size="0.01" rgba="1 0 0 1"/>
+
+                    <!-- Left Gripper Fingers -->
+                    <body name="left_finger_left" pos="-0.025 0.02 -0.04">
+                      <joint name="left_finger_joint1" type="slide" axis="1 0 0" range="0 0.035" damping="1.0"/>
+                      <geom name="l_pad1" type="box" size="0.006 0.012 0.035" pos="0 0 -0.035" material="gripper_pad"/>
+                    </body>
+                    <body name="left_finger_right" pos="0.025 0.02 -0.04">
+                      <joint name="left_finger_joint2" type="slide" axis="-1 0 0" range="0 0.035" damping="1.0"/>
+                      <geom name="l_pad2" type="box" size="0.006 0.012 0.035" pos="0 0 -0.035" material="gripper_pad"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- ==================== RIGHT ARM (7-DOF) ==================== -->
+      <body name="right_shoulder_yaw" pos="0.22 0 0.76">
+        <joint name="right_j0" type="hinge" axis="0 0 1" range="-2.8 2.8"/>
+        <geom name="r_sh_yaw_geom" type="sphere" size="0.065" material="robot_accent" contype="0" conaffinity="0"/>
+
+        <body name="right_shoulder_pitch" pos="0 0 0">
+          <joint name="right_j1" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+          <geom name="r_sh_pitch_geom" type="cylinder" size="0.05 0.07" pos="0 0 -0.07" material="robot_metal" contype="0" conaffinity="0"/>
+
+          <body name="right_shoulder_roll" pos="0 0 -0.14">
+            <joint name="right_j2" type="hinge" axis="0 1 0" range="-2.8 2.8"/>
+            <geom name="r_upper_arm" type="capsule" size="0.045" fromto="0 0 0 0 0.04 -0.18" material="robot_link" contype="0" conaffinity="0"/>
+
+            <body name="right_elbow" pos="0 0.04 -0.22">
+              <joint name="right_j3" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+              <geom name="r_elb_geom" type="sphere" size="0.045" material="robot_accent" contype="0" conaffinity="0"/>
+
+              <body name="right_forearm_yaw" pos="0 0 0">
+                <joint name="right_j4" type="hinge" axis="0 0 1" range="-2.8 2.8"/>
+                <geom name="r_forearm" type="capsule" size="0.038" fromto="0 0 0 0 0.04 -0.16" material="robot_link" contype="0" conaffinity="0"/>
+
+                <body name="right_wrist_pitch" pos="0 0.04 -0.18">
+                  <joint name="right_j5" type="hinge" axis="1 0 0" range="-2.8 2.8"/>
+                  <geom name="r_wr_geom" type="sphere" size="0.035" material="robot_metal" contype="0" conaffinity="0"/>
+
+                  <body name="right_wrist_roll" pos="0 0 0">
+                    <joint name="right_j6" type="hinge" axis="0 1 0" range="-2.8 2.8"/>
+                    <geom name="r_hand_base" type="box" size="0.035 0.03 0.02" pos="0 0.02 -0.03" material="robot_accent" contype="0" conaffinity="0"/>
+
+                    <!-- Right Wrist Camera -->
+                    <camera name="cam_right_wrist" pos="0 0.06 -0.01" xyaxes="1 0 0 0 0.5 -0.86" fovy="65"/>
+
+                    <!-- Right End-Effector Tracking Site -->
+                    <site name="right_ee" pos="0 0.02 -0.09" size="0.01" rgba="0 1 0 1"/>
+
+                    <!-- Right Gripper Fingers -->
+                    <body name="right_finger_left" pos="-0.025 0.02 -0.04">
+                      <joint name="right_finger_joint1" type="slide" axis="1 0 0" range="0 0.035" damping="1.0"/>
+                      <geom name="r_pad1" type="box" size="0.006 0.012 0.035" pos="0 0 -0.035" material="gripper_pad"/>
+                    </body>
+                    <body name="right_finger_right" pos="0.025 0.02 -0.04">
+                      <joint name="right_finger_joint2" type="slide" axis="-1 0 0" range="0 0.035" damping="1.0"/>
+                      <geom name="r_pad2" type="box" size="0.006 0.012 0.035" pos="0 0 -0.035" material="gripper_pad"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Left Arm Actuators -->
+    <position name="act_left_j0" joint="left_j0" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_left_j1" joint="left_j1" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_left_j2" joint="left_j2" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_left_j3" joint="left_j3" ctrlrange="-2.8 2.8" kp="500" kv="35" forcerange="-200 200"/>
+    <position name="act_left_j4" joint="left_j4" ctrlrange="-2.8 2.8" kp="400" kv="30" forcerange="-150 150"/>
+    <position name="act_left_j5" joint="left_j5" ctrlrange="-2.8 2.8" kp="300" kv="25" forcerange="-100 100"/>
+    <position name="act_left_j6" joint="left_j6" ctrlrange="-2.8 2.8" kp="300" kv="25" forcerange="-100 100"/>
+
+    <!-- Left Gripper Actuators -->
+    <position name="act_left_finger1" joint="left_finger_joint1" ctrlrange="0 0.035" kp="80" kv="8" forcerange="-30 30"/>
+    <position name="act_left_finger2" joint="left_finger_joint2" ctrlrange="0 0.035" kp="80" kv="8" forcerange="-30 30"/>
+
+    <!-- Right Arm Actuators -->
+    <position name="act_right_j0" joint="right_j0" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_right_j1" joint="right_j1" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_right_j2" joint="right_j2" ctrlrange="-2.8 2.8" kp="600" kv="40" forcerange="-250 250"/>
+    <position name="act_right_j3" joint="right_j3" ctrlrange="-2.8 2.8" kp="500" kv="35" forcerange="-200 200"/>
+    <position name="act_right_j4" joint="right_j4" ctrlrange="-2.8 2.8" kp="400" kv="30" forcerange="-150 150"/>
+    <position name="act_right_j5" joint="right_j5" ctrlrange="-2.8 2.8" kp="300" kv="25" forcerange="-100 100"/>
+    <position name="act_right_j6" joint="right_j6" ctrlrange="-2.8 2.8" kp="300" kv="25" forcerange="-100 100"/>
+
+    <!-- Right Gripper Actuators -->
+    <position name="act_right_finger1" joint="right_finger_joint1" ctrlrange="0 0.035" kp="80" kv="8" forcerange="-30 30"/>
+    <position name="act_right_finger2" joint="right_finger_joint2" ctrlrange="0 0.035" kp="80" kv="8" forcerange="-30 30"/>
+  </actuator>
+
+  <sensor>
+    <framepos name="left_ee_pos" objtype="site" objname="left_ee"/>
+    <framequat name="left_ee_quat" objtype="site" objname="left_ee"/>
+    <framepos name="right_ee_pos" objtype="site" objname="right_ee"/>
+    <framequat name="right_ee_quat" objtype="site" objname="right_ee"/>
+  </sensor>
+</mujoco>

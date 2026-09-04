@@ -1,0 +1,113 @@
+[
+  {
+    "id": "1.1",
+    "phase": "Phase 1: The Dot",
+    "title": "MuJoCo Core Architecture & State Vectors",
+    "status": "completed",
+    "xp": 100,
+    "g1_connection": "On the Unitree G1, data.qpos is a 1D array of 35 floating-point numbers instead of 1. Indexes 0-6 represent the floating pelvis (XYZ position + orientation quaternion), while indexes 7-34 represent every single joint in the legs, waist, arms, and hands. The physics loop that advances these 35 joints is identical to our simple pendulum.",
+    "quiz": {
+      "question": "If a robot has 2 arms with 7 joints each, a 3-joint neck, and a fixed base, what is the length of data.qpos?",
+      "options": ["7", "14", "17", "21"],
+      "correct": 2,
+      "explanation": "7 (left arm) + 7 (right arm) + 3 (neck) = 17 generalized joint coordinates."
+    },
+    "content": "### 1. Architectural Foundation: Model vs. Data\n\nMuJoCo enforces a strict separation between structural specifications and temporal physics states.\n\n* **`mjModel` (`model`)**: The static blueprint. Stored in C memory as an immutable struct once parsed from the XML definition. It encapsulates kinematic tree topologies, link geometries, inertial properties, joint axes, actuator limits, and solver integration parameters. It does not change during simulation.\n* **`mjData` (`data`)**: The dynamic runtime buffer. Contains the transient state variables at time $t$. Every call to `mujoco.mj_step(model, data)` consumes the current state in `data`, applies numerical integration, and overwrites `data` with the subsequent state at $t + \\Delta t$.\n\n### 2. State Representation & Coordinate Systems\n\nRobotics physics engines rely on Generalized Coordinates ($q$). Rather than storing Cartesian coordinates $(x, y, z)$ for every link and solving millions of rigid-body equality constraints, MuJoCo uses Minimal Coordinates along the joint axes.\n\n```text\ndata.qpos : Generalized Positions [nq]\ndata.qvel : Generalized Velocities [nv]\ndata.ctrl : Actuator Control Inputs [nu]\n```\n\n#### The Zero Configuration ($q_{\\text{pos}} = 0$)\n\nIn analytical mathematics, $0$ radians is typically aligned with the Cartesian $+X$ axis. In multibody simulation, $q_{\\text{pos}} = 0$ is defined strictly by the resting geometric layout declared in the model XML file.\n\nWhen our pendulum rod is defined with `pos=\"0 0 -0.25\"`, the geometry points vertically downward along the $-Z$ axis in the zero configuration. Thus:\n\n* $q_{\\text{pos}} = 0.00\\text{ rad}$ ($0^\\circ$): Hanging straight down (stable equilibrium).\n* $q_{\\text{pos}} = 1.57\\text{ rad}$ ($90^\\circ$): Rotated counter-clockwise to horizontal.\n* $q_{\\text{pos}} = 3.14\\text{ rad}$ ($180^\\circ$): Pointing vertically upward (unstable inverted equilibrium).\n\n### 3. The Numerical Integration Step\n\nThe fundamental simulation loop operates in discrete time steps:\n\n$$\\Delta t = \\text{model.opt.timestep} \\quad (\\text{default: } 0.002\\text{ s})$$\n\nEach invocation of `mujoco.mj_step(model, data)` calculates forward dynamics:\n\n1. Forward kinematics: body positions, orientations, and frame Jacobians.\n2. Applied forces: gravity vector, Coriolis and centrifugal forces.\n3. Accelerations $\\ddot{q} = M(q)^{-1} (\\tau - C(q, \\dot{q}) - g(q))$.\n4. Time stepping: updates $q_{\\text{pos}}$ and $q_{\\text{vel}}$ using the semi-implicit Euler integrator."
+  },
+  {
+    "id": "1.2",
+    "phase": "Phase 1: The Dot",
+    "title": "Passive Dynamics, Friction & Equilibrium Conditions",
+    "status": "completed",
+    "xp": 100,
+    "g1_connection": "When a real humanoid robot experiences a power cut or loses motor power, its joints go completely passive. Understanding joint damping and mechanical equilibrium is critical for designing compliant fall-recovery behaviors and ensuring unpowered limbs decelerate safely rather than violently flailing.",
+    "quiz": {
+      "question": "Why does evaluating `abs(qvel) < 0.02` by itself fail to confirm that a swinging pendulum has stopped?",
+      "options": [
+        "Because velocity is always positive",
+        "Because at the turnaround peak of every swing, velocity is zero",
+        "Because MuJoCo cannot measure speed accurately",
+        "Because damping increases velocity"
+      ],
+      "correct": 1,
+      "explanation": "At the peak of every swing, instantaneous velocity passes through zero before reversing direction, creating a false-positive."
+    },
+    "content": "### 1. Mechanical Energy Conservation in Ideal Systems\n\nIn an unactuated mechanical system without dissipative elements (`damping=\"0.0\"`), total mechanical energy $E$ is conserved:\n\n$$E = T + V = \\text{constant}$$\n\nWhere:\n* **Kinetic Energy ($T$)**: $T = \\frac{1}{2} I \\dot{\\theta}^2$\n* **Potential Energy ($V$)**: $V = -m g l_{\\text{com}} \\cos(\\theta)$\n\nWhen released from rest at $90^\\circ$ ($q_{\\text{pos}} = 1.57$), all energy is gravitational potential. In the absence of friction, it oscillates continuously between $+90^\\circ$ and $-90^\\circ$.\n\nIf initial kinetic energy is injected via $q_{\\text{vel}} > 0$ such that $E > m g l_{\\text{com}}$, the pendulum possesses sufficient velocity to overcome the potential peak at $180^\\circ$, entering continuous complete rotations.\n\n### 2. Viscous Damping & Energy Dissipation\n\nReal joints encounter friction. In MuJoCo, the `damping` attribute models viscous damping:\n\n$$\\tau_{\\text{friction}} = -b \\cdot \\dot{q} = -b \\cdot q_{\\text{vel}}$$\n\nWhere $b$ is the damping coefficient (in $\\text{N}\\cdot\\text{m}\\cdot\\text{s}/\\text{rad}$). This generates a resisting torque directly proportional to instantaneous rotational speed, dissipating mechanical energy as heat.\n\n### 3. Multi-Condition Equilibrium Check\nA body has reached true rest if and only if:\n1. It is positioned at the potential energy minimum: $|q_{\\text{pos}}| < \\epsilon_p$.\n2. Its kinetic energy is negligible: $|q_{\\text{vel}}| < \\epsilon_v$.\n3. The condition holds after initial dynamic transients have elapsed ($t > t_{\\text{settle}}$)."
+  },
+  {
+    "id": "1.3",
+    "phase": "Phase 1: The Dot",
+    "title": "Torque Actuation & Static Gravity Compensation",
+    "status": "completed",
+    "xp": 150,
+    "g1_connection": "The Unitree G1 humanoid's arms weigh approximately 2.5 kg each. Without active gravity compensation torques fed into data.ctrl, the robot's arms would sag toward the floor. In commercial humanoid control, a dynamic gravity-compensation algorithm computes the exact feedforward torque for all 14 arm joints continuously in real-time.",
+    "quiz": {
+      "question": "What happens if you command a constant open-loop holding torque of 3.77 N·m to an arm that is already moving upward at 1.0 rad/s?",
+      "options": [
+        "It stops immediately at 90 degrees",
+        "It accelerates upward and spins continuously because gravity resistance decreases as it rises",
+        "It runs out of battery",
+        "MuJoCo shuts down the simulation"
+      ],
+      "correct": 1,
+      "explanation": "Because gravity torque decreases as angle approaches 180 degrees, a constant motor torque exceeds gravity and drives continuous rotation."
+    },
+    "content": "### 1. Actuation Architecture: The `data.ctrl` Vector\n\nTo transform a passive linkage into an active robot, actuators are declared in the XML model:\n\n```xml\n<actuator>\n  <motor name=\"shoulder_motor\" joint=\"pin\"/>\n</actuator>\n```\n\nA `<motor>` actuator in MuJoCo directly injects generalized forces along the joint degree of freedom. For revolute joints, `data.ctrl[i]` specifies joint torque $\\tau$ in Newton-meters ($\\text{N}\\cdot\\text{m}$).\n\n### 2. Static Equilibrium & Torque Derivation\n\nFor a rigid body to maintain a stationary configuration at an angle $\\theta$, the sum of all external and actuator torques about the pivot axis must equal zero:\n\n$$\\sum \\tau = \\tau_{\\text{motor}} + \\tau_{\\text{gravity}} = 0$$\n$$\\tau_{\\text{motor}} = -\\tau_{\\text{gravity}}$$\n\n#### The Analytical Calculation for our Model\nOur pendulum assembly consists of two distinct physical bodies:\n\n1. **The Cylindrical Rod**:\n   * Mass: $m_{\\text{rod}} = 1.0\\text{ kg}$, Length: $L = 0.5\\text{ m}$\n   * Center of mass distance: $r_{\\text{rod}} = 0.25\\text{ m}$\n   * $\\tau_{\\text{rod}} = 1.0 \\times 9.81 \\times 0.25 = 2.4525\\text{ N}\\cdot\\text{m}$\n\n2. **The Tip Sphere**:\n   * Mass from volume: $m_{\\text{sphere}} \\approx 0.268\\text{ kg}$, Distance: $0.50\\text{ m}$\n   * $\\tau_{\\text{sphere}} = 0.268 \\times 9.81 \\times 0.50 = 1.3145\\text{ N}\\cdot\\text{m}$\n\n$$\\tau_{\\text{total}} = 2.4525 + 1.3145 \\approx 3.77\\text{ N}\\cdot\\text{m}$$\n\nWhen starting at rest (`qvel = 0.0`), commanding `data.ctrl[0] = 3.77` balances gravity at horizontal."
+  },
+  {
+    "id": "1.4",
+    "phase": "Phase 1: The Dot",
+    "title": "Closed-Loop Feedback: Proportional-Derivative (PD) Control",
+    "status": "in_progress",
+    "xp": 200,
+    "g1_connection": "Every low-level motor drive on the Unitree G1 humanoid runs a high-frequency (1 kHz) PD loop locally on its microcontrollers. When high-level AI policies (like Diffusion Policy or ACT) output action chunks, they are sending target joint angles (q_target) to these PD controllers.",
+    "quiz": {
+      "question": "What is the physical role of the Derivative gain (Kd) in a PD controller?",
+      "options": [
+        "It pushes the arm toward the target like a spring",
+        "It acts like a virtual damper, absorbing kinetic energy and stopping oscillations",
+        "It multiplies the position error",
+        "It cancels gravity completely"
+      ],
+      "correct": 1,
+      "explanation": "Kd opposes joint velocity (-Kd * qvel), acting as a virtual shock absorber to prevent overshoot and oscillations."
+    },
+    "content": "### 1. The Limitation of Open-Loop Actuation\n\nIn Mission 1.3, we found a specific constant torque ($3.77\\text{ N}\\cdot\\text{m}$) that holds the arm at exactly $90^\\circ$. However, this open-loop strategy cannot steer the robot from an arbitrary starting position to a designated target, nor can it reject external physical disturbances.\n\nTo make a robot autonomous, we must transition from open-loop actuation to **closed-loop feedback control**.\n\n### 2. The Proportional-Derivative (PD) Architecture\n\nThe PD controller continuously observes the actual joint state and calculates control torque as a function of instantaneous state error:\n\n$$e(t) = q_{\\text{target}} - q_{\\text{actual}}(t)$$\n$$\\tau(t) = K_p \\cdot e(t) - K_d \\cdot \\dot{q}_{\\text{actual}}(t)$$\n\n#### The Proportional Term ($K_p \\cdot e$)\nActs as a **virtual torsional spring** anchored between the actual joint position and the target setpoint. The further the arm is from the target, the greater the restoring torque exerted by the motor.\n\n#### The Derivative Term ($-K_d \\cdot \\dot{q}$)\nActs as a **virtual torsional damper**. It opposes rotational velocity, dissipating kinetic energy as the arm moves toward the setpoint. Without the derivative term ($K_d = 0$), the proportional spring causes the arm to overshoot the target and oscillate indefinitely.\n\n### 3. Lab Mission: Build Your First PD Controller\n\nIn your next Python script, you will:\n1. Choose a target angle: e.g. $q_{\\text{target}} = 0.785\\text{ rad}$ ($45^\\circ$).\n2. Inside the simulation loop, compute: `error = target - data.qpos[0]`.\n3. Compute torque: `data.ctrl[0] = Kp * error - Kd * data.qvel[0]`.\n4. Tune $K_p$ and $K_d$ to achieve fast, stable convergence without oscillations."
+  },
+  {
+    "id": "1.5",
+    "phase": "Phase 1: The Dot",
+    "title": "Phase 1 Boss Fight: The Inverted Pendulum Balance Challenge",
+    "status": "pending",
+    "xp": 300,
+    "g1_connection": "Humanoid walking is fundamentally modeled as an 3D Inverted Pendulum (LIPM - Linear Inverted Pendulum Model). If you can stabilize an inverted pendulum against perturbations, you have mastered the core stabilization principle behind bipedal balance.",
+    "content": "### Phase 1 Capstone Challenge: Balancing at 180°\n\nIn this boss challenge, you start the pendulum near the inverted upright position ($q_{\\text{pos}} = 3.14\\text{ rad}$) and write a PD controller with gravity compensation to keep it balanced upright even when subjected to external disturbances or pushes."
+  },
+  {
+    "id": "2.1",
+    "phase": "Phase 2: The Line",
+    "title": "2-DoF Planar Arm & Forward Kinematics (FK)",
+    "status": "pending",
+    "xp": 150,
+    "g1_connection": "Each arm of the G1 has 7 joints. Forward Kinematics is how the robot calculates where its hand palm is in 3D Cartesian coordinates relative to its torso.",
+    "content": "### Roadmap Preview: 2-DoF Kinematics\n\nIn Phase 2, we introduce a second revolute joint, forming a two-link planar arm operating in the $(X, Y)$ plane. Forward Kinematics determines the Cartesian coordinates of the end-effector given joint angles $(\\theta_1, \\theta_2)$:\n\n$$x = l_1 \\cos(\\theta_1) + l_2 \\cos(\\theta_1 + \\theta_2)$$\n$$y = l_1 \\sin(\\theta_1) + l_2 \\sin(\\theta_1 + \\theta_2)$$"
+  },
+  {
+    "id": "2.2",
+    "phase": "Phase 2: The Line",
+    "title": "Analytical Inverse Kinematics (IK) & The Law of Cosines",
+    "status": "pending",
+    "xp": 200,
+    "g1_connection": "When you want the robot to reach for a cup on a table, you specify the cup's coordinates (x, y, z). Inverse Kinematics solves for the exact shoulder and elbow angles required to reach that point.",
+    "content": "### Roadmap Preview: Analytical Inverse Kinematics\n\nGiven a target $(x, y)$, calculate the required joint angles $(\\theta_1, \\theta_2)$ using trigonometry. We will explore reachability limits, singularities, and elbow-up vs. elbow-down solutions."
+  },
+  {
+    "id": "3.1",
+    "phase": "Phase 3: The Shape",
+    "title": "3D Manipulators & The Jacobian Matrix",
+    "status": "pending",
+    "xp": 250,
+    "g1_connection": "The official UniBot challenge uses Damped Least Squares Jacobian Inverse Kinematics in run_sim.py. In Phase 3, you will derive and understand this exact mathematical matrix yourself.",
+    "content": "### Roadmap Preview: Spatial Manipulators & Jacobians\n\nPhase 3 transitions to 6-DoF spatial manipulators, mapping end-effector Cartesian velocities to joint velocities via the Jacobian matrix $J(q)$:\n\n$$\\dot{x} = J(q) \\dot{q}$$\n$$\\Delta q \\approx J(q)^\\dagger \\Delta x$$"
+  }
+]

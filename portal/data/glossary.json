@@ -1,0 +1,98 @@
+[
+  {
+    "term": "data.qpos",
+    "category": "MuJoCo State",
+    "summary": "Generalized coordinates vector (joint positions / angles).",
+    "details": "A 1D numpy array representing the current position of every degree of freedom in the system. For a revolute/hinge joint, qpos is rotation in radians relative to the reference zero configuration defined in XML. For a prismatic joint, it is displacement in meters. For a 3D free joint (unanchored object), it takes 7 entries: 3 for Cartesian position (x, y, z) and 4 for orientation quaternion (w, x, y, z)."
+  },
+  {
+    "term": "data.qvel",
+    "category": "MuJoCo State",
+    "summary": "Generalized velocities vector (joint speeds).",
+    "details": "A 1D numpy array representing the time derivative of joint positions. For hinge joints, this is angular velocity in radians per second (rad/s). For slide joints, it is linear velocity in meters per second (m/s). For a 3D free joint, it takes 6 entries: 3 linear velocities and 3 rotational velocities (angular rate vector in body frame)."
+  },
+  {
+    "term": "data.ctrl",
+    "category": "MuJoCo Actuation",
+    "summary": "Actuator control inputs vector.",
+    "details": "A 1D numpy array of control commands passed to actuators. For a torque motor (<motor>), ctrl corresponds directly to torque in Newton-meters (N·m) or linear force in Newtons (N). For position or velocity servos, ctrl represents the target setpoint."
+  },
+  {
+    "term": "data.xpos",
+    "category": "MuJoCo Kinematics",
+    "summary": "Cartesian positions of bodies in world frame.",
+    "details": "A 2D array of shape (nbody, 3) representing the global 3D coordinates (x, y, z in meters) of the center of each body, computed automatically by MuJoCo via forward kinematics during each physics step."
+  },
+  {
+    "term": "data.time",
+    "category": "MuJoCo State",
+    "summary": "Current simulation timestamp in seconds.",
+    "details": "Simulation clock tracking total elapsed physical time (in seconds). Advanced by model.opt.timestep every time mj_step is invoked."
+  },
+  {
+    "term": "model.opt.timestep",
+    "category": "MuJoCo Config",
+    "summary": "Discrete numerical integration step size.",
+    "details": "The delta time (dt) used by the numerical integrator (Euler or Runge-Kutta). The default value is 0.002 seconds (2 milliseconds), meaning 500 integration steps equal 1 second of physical time."
+  },
+  {
+    "term": "Zero Configuration (Reference Pose)",
+    "category": "Robotics Kinematics",
+    "summary": "The baseline posture of the robot where all joint angles are zero.",
+    "details": "The spatial configuration of links and bodies when qpos = 0. This is defined by the resting geometry and positions authored in the XML model file. Every commanded angle is measured as an offset from this baseline."
+  },
+  {
+    "term": "Degree of Freedom (DoF)",
+    "category": "Robotics Mechanics",
+    "summary": "The number of independent parameters defining the system's configuration.",
+    "details": "A single hinge joint has 1 DoF (rotation around one axis). A human arm has 7 DoFs (3 at shoulder, 1 at elbow, 3 at wrist). An unconstrained rigid body in 3D space has 6 DoFs (3 translation, 3 rotation)."
+  },
+  {
+    "term": "Joint Space vs. Cartesian Space",
+    "category": "Robotics Kinematics",
+    "summary": "Coordinate representations of robot state.",
+    "details": "Joint space describes the robot using its internal joint angles (theta_1, theta_2, ...). Cartesian space (also called operational space or task space) describes the position and orientation of the end-effector or object in 3D world coordinates (x, y, z, roll, pitch, yaw)."
+  },
+  {
+    "term": "Forward Kinematics (FK)",
+    "category": "Robotics Kinematics",
+    "summary": "Computing Cartesian end-effector pose from joint angles.",
+    "details": "Given joint values (qpos), calculate where the end-effector or gripper is located in 3D Cartesian space. FK is deterministic and always yields a unique single solution."
+  },
+  {
+    "term": "Inverse Kinematics (IK)",
+    "category": "Robotics Kinematics",
+    "summary": "Computing joint angles required to place the end-effector at a target pose.",
+    "details": "Given a target 3D position/orientation (x, y, z), solve for the joint angles (qpos) needed to achieve it. IK can have zero solutions (target out of reach), multiple solutions (elbow-up vs elbow-down), or infinite solutions (redundant manipulators)."
+  },
+  {
+    "term": "Open-Loop Control",
+    "category": "Control Theory",
+    "summary": "Actuation without feedback monitoring.",
+    "details": "The controller executes a predetermined command (such as a constant torque or open-loop trajectory) without measuring actual system state. Susceptible to drift, disturbances, and modeling discrepancies."
+  },
+  {
+    "term": "Closed-Loop Control (Feedback)",
+    "category": "Control Theory",
+    "summary": "Actuation actively corrected by sensor feedback.",
+    "details": "The controller continuously measures actual state (qpos, qvel), computes the error between target and actual, and calculates a corrective command to drive the error to zero."
+  },
+  {
+    "term": "Proportional (P) Control",
+    "category": "Control Theory",
+    "summary": "Control output proportional to current position error.",
+    "details": "Command u = K_p * (target - current). Acts like a virtual spring: the further the joint is from the target, the harder the motor pushes. Without damping, a pure P controller will oscillate indefinitely around the target."
+  },
+  {
+    "term": "Derivative (D) Control",
+    "category": "Control Theory",
+    "summary": "Control output proportional to rate of change (velocity).",
+    "details": "Command u = -K_d * velocity. Acts like a virtual damper or shock absorber: resists rapid motion and dissipates kinetic energy, eliminating oscillations."
+  },
+  {
+    "term": "Gravity Compensation",
+    "category": "Control Theory",
+    "summary": "Feedforward torque applied to counteract the weight of the robot links.",
+    "details": "Torque calculated from the link masses and lever arms such that the gravitational pull is exactly neutralized, allowing the robot to feel weightless."
+  }
+]
