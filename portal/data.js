@@ -3,100 +3,24 @@ const PORTAL_DATA = {
   "daily_missions": [
     {
       "id": "D-01",
-      "title": "Tune Critically Damped PD Controller",
-      "xp": 50,
-      "description": "In 03_pd_controller.py, test starting from qpos = 0.0 with target = 1.57 (90°). Tune Kp and Kd until the arm reaches 90° as fast as possible with zero overshoot oscillations.",
-      "completed": false
+      "title": "Step Size Sensitivity Test",
+      "xp": 40,
+      "description": "In 01_inspect_physics.py, change timestep from 0.002 to 0.02 and 0.0002. Observe numerical stability.",
+      "completed": true
     },
     {
       "id": "D-02",
-      "title": "Holding Torque at 30°",
+      "title": "Zero-Damping Energy Check",
       "xp": 50,
-      "description": "Calculate theoretical gravity torque for 30°: tau = 3.77 * sin(30°) = 1.885 N*m. Test commanding this open-loop torque in Python to verify equilibrium.",
-      "completed": false
+      "description": "Set joint damping to 0.0 in XML and verify that max amplitude is perfectly conserved across 20 cycles.",
+      "completed": true
     },
     {
       "id": "D-03",
-      "title": "Disturbance Impulse Stress Test",
-      "xp": 50,
-      "description": "In your balance controller, increase external disturbance shove to 12.0 N*m for 50 timesteps. Tune Kp and Kd to recover balance without letting the pendulum tumble.",
-      "completed": false
-    }
-  ],
-  "practice_challenges": [
-    {
-      "id": "PRAC-01",
-      "type": "quiz",
-      "category": "Control Theory",
-      "title": "Damping Physics at Rest",
-      "prompt": "When the robot arm is stationary at rest ($q_{\\text{vel}} = 0$), how much torque does the derivative ($K_d$) term provide?",
-      "options": [
-        "Zero torque (0 N*m)",
-        "Maximum torque",
-        "Equal to Kp * target",
-        "Opposite of gravity torque"
-      ],
-      "correct": 0,
-      "explanation": "Because tau_D = -Kd * qvel, when velocity is zero, the derivative torque is strictly zero. The D term only resists active motion; it cannot hold static weight.",
-      "xp": 40
-    },
-    {
-      "id": "PRAC-02",
-      "type": "fill_in",
-      "category": "MuJoCo Architecture",
-      "title": "Actuator Command Array",
-      "prompt": "In MuJoCo, generalized coordinates are in `data.qpos` and velocities are in `data.qvel`. What is the exact name of the array used to send motor torque commands?",
-      "placeholder": "e.g. data.xyz",
-      "answer": "data.ctrl",
-      "explanation": "data.ctrl is the 1D control vector dispatched to actuators on every simulation step.",
-      "xp": 40
-    },
-    {
-      "id": "PRAC-03",
-      "type": "physics",
-      "category": "Static Dynamics",
-      "title": "Analytical Gravity Torque at 30°",
-      "prompt": "Our pendulum has a maximum gravity torque of $3.77\\text{ N}\\cdot\\text{m}$ at horizontal ($90^\\circ$). Given $\\tau(\\theta) = \\tau_{\\max} \\cdot \\sin(\\theta)$, calculate the gravity torque at $\\theta = 30^\\circ$ (where $\\sin(30^\\circ) = 0.5$). Enter the numerical value in $\\text{N}\\cdot\\text{m}$:",
-      "placeholder": "e.g. 1.50",
-      "answer": 1.885,
-      "tolerance": 0.05,
-      "explanation": "tau = 3.77 * sin(30°) = 3.77 * 0.5 = 1.885 N*m (approx 1.89 N*m).",
-      "xp": 50
-    },
-    {
-      "id": "PRAC-04",
-      "type": "physics",
-      "category": "Control Theory",
-      "title": "Steady-State Droop Calculation",
-      "prompt": "A robot joint uses pure Proportional control with $K_p = 25.0\\text{ N}\\cdot\\text{m/rad}$. At the desired target, gravity pulls downward with $\\tau_{\\text{grav}} = 2.50\\text{ N}\\cdot\\text{m}$. Since static equilibrium requires $K_p \\cdot e = \\tau_{\\text{grav}}$, calculate the steady-state error $e$ in radians:",
-      "placeholder": "e.g. 0.05",
-      "answer": 0.10,
-      "tolerance": 0.01,
-      "explanation": "e = tau_grav / Kp = 2.50 / 25.0 = 0.10 radians (about 5.73 degrees droop).",
-      "xp": 50
-    },
-    {
-      "id": "PRAC-05",
-      "type": "physics",
-      "category": "Kinematics",
-      "title": "Planar Arm Maximum Reach",
-      "prompt": "A 2-DoF planar arm has upper arm length $l_1 = 0.45\\text{ m}$ and forearm length $l_2 = 0.35\\text{ m}$. What is the maximum reachable distance (workspace radius) from the shoulder pivot in meters when fully outstretched?",
-      "placeholder": "e.g. 1.0",
-      "answer": 0.80,
-      "tolerance": 0.01,
-      "explanation": "When fully extended in a straight line (relative elbow angle = 0), r_max = l1 + l2 = 0.45 + 0.35 = 0.80 meters.",
-      "xp": 50
-    },
-    {
-      "id": "PRAC-06",
-      "type": "fill_in",
-      "category": "Kinematics",
-      "title": "Coordinate Space Mapping",
-      "prompt": "Calculating the hand Cartesian position $(x, y, z)$ from known joint angles $(\\theta_1, \\theta_2)$ is called ________ kinematics (type 'Forward' or 'Inverse'):",
-      "placeholder": "Forward or Inverse",
-      "answer": "forward",
-      "explanation": "Forward kinematics maps joint angles to Cartesian coordinates. Inverse kinematics solves the reverse.",
-      "xp": 40
+      "title": "Torque Limits Verification",
+      "xp": 60,
+      "description": "Add gear or ctrlrange attribute to your actuator in XML and test what happens when motor torque saturates.",
+      "completed": true
     }
   ],
   "lessons": [
@@ -105,7 +29,7 @@ const PORTAL_DATA = {
       "phase": "Phase 1: The Dot",
       "title": "MuJoCo Core Architecture & State Vectors",
       "status": "completed",
-      "xp": 50,
+      "xp": 100,
       "g1_connection": "On the Unitree G1, data.qpos is a 1D array of 35 floating-point numbers instead of 1. Indexes 0-6 represent the floating pelvis (XYZ position + orientation quaternion), while indexes 7-34 represent every single joint in the legs, waist, arms, and hands. The physics loop that advances these 35 joints is identical to our simple pendulum.",
       "quiz": {
         "question": "If a robot has 2 arms with 7 joints each, a 3-joint neck, and a fixed base, what is the length of data.qpos?",
@@ -125,7 +49,7 @@ const PORTAL_DATA = {
       "phase": "Phase 1: The Dot",
       "title": "Passive Dynamics, Friction & Equilibrium Conditions",
       "status": "completed",
-      "xp": 50,
+      "xp": 100,
       "g1_connection": "When a real humanoid robot experiences a power cut or loses motor power, its joints go completely passive. Understanding joint damping and mechanical equilibrium is critical for designing compliant fall-recovery behaviors and ensuring unpowered limbs decelerate safely rather than violently flailing.",
       "quiz": {
         "question": "Why does evaluating `abs(qvel) < 0.02` by itself fail to confirm that a swinging pendulum has stopped?",
@@ -145,7 +69,7 @@ const PORTAL_DATA = {
       "phase": "Phase 1: The Dot",
       "title": "Torque Actuation & Static Gravity Compensation",
       "status": "completed",
-      "xp": 75,
+      "xp": 150,
       "g1_connection": "The Unitree G1 humanoid's arms weigh approximately 2.5 kg each. Without active gravity compensation torques fed into data.ctrl, the robot's arms would sag toward the floor. In commercial humanoid control, a dynamic gravity-compensation algorithm computes the exact feedforward torque for all 14 arm joints continuously in real-time.",
       "quiz": {
         "question": "What happens if you command a constant open-loop holding torque of 3.77 N·m to an arm that is already moving upward at 1.0 rad/s?",
@@ -158,53 +82,42 @@ const PORTAL_DATA = {
         "correct": 1,
         "explanation": "Because gravity torque decreases as angle approaches 180 degrees, a constant motor torque exceeds gravity and drives continuous rotation."
       },
-      "content": "### 1. Actuation Architecture: The `data.ctrl` Vector\n\nTo transform a passive linkage into an active robot, actuators are declared in the XML model:\n\n```xml\n<actuator>\n  <motor name=\"shoulder_motor\" joint=\"pin\"/>\n</actuator>\n```\n\nA `<motor>` actuator in MuJoCo directly injects generalized forces along the joint degree of freedom. For revolute joints, `data.ctrl[i]` specifies joint torque $\\tau$ in Newton-meters ($\text{N}\\cdot\\text{m}$).\n\n### 2. Static Equilibrium & Torque Derivation\n\nFor a rigid body to maintain a stationary configuration at an angle $\\theta$, the sum of all external and actuator torques about the pivot axis must equal zero:\n\n$$\\sum \\tau = \\tau_{\\text{motor}} + \\tau_{\\text{gravity}} = 0$$\n$$\\tau_{\\text{motor}} = -\\tau_{\\text{gravity}}$$\n\n#### The Analytical Calculation for our Model\nOur pendulum assembly consists of two distinct physical bodies:\n\n1. **The Cylindrical Rod**:\n   * Mass: $m_{\\text{rod}} = 1.0\\text{ kg}$, Length: $L = 0.5\\text{ m}$\n   * Center of mass distance: $r_{\\text{rod}} = 0.25\\text{ m}$\n   * $\\tau_{\\text{rod}} = 1.0 \\times 9.81 \\times 0.25 = 2.4525\\text{ N}\\cdot\\text{m}$\n\n2. **The Tip Sphere**:\n   * Mass from volume: $m_{\\text{sphere}} \\approx 0.268\\text{ kg}$, Distance: $0.50\\text{ m}$\n   * $\\tau_{\\text{sphere}} = 0.268 \\times 9.81 \\times 0.50 = 1.3145\\text{ N}\\cdot\\text{m}$\n\n$$\\tau_{\\text{total}} = 2.4525 + 1.3145 \\approx 3.77\\text{ N}\\cdot\\text{m}$$\n\nWhen starting at rest (`qvel = 0.0`), commanding `data.ctrl[0] = 3.77` balances gravity at horizontal."
+      "content": "### 1. Actuation Architecture: The `data.ctrl` Vector\n\nTo transform a passive linkage into an active robot, actuators are declared in the XML model:\n\n```xml\n<actuator>\n  <motor name=\"shoulder_motor\" joint=\"pin\"/>\n</actuator>\n```\n\nA `<motor>` actuator in MuJoCo directly injects generalized forces along the joint degree of freedom. For revolute joints, `data.ctrl[i]` specifies joint torque $\\tau$ in Newton-meters ($\\text{N}\\cdot\\text{m}$).\n\n### 2. Static Equilibrium & Torque Derivation\n\nFor a rigid body to maintain a stationary configuration at an angle $\\theta$, the sum of all external and actuator torques about the pivot axis must equal zero:\n\n$$\\sum \\tau = \\tau_{\\text{motor}} + \\tau_{\\text{gravity}} = 0$$\n$$\\tau_{\\text{motor}} = -\\tau_{\\text{gravity}}$$\n\n#### The Analytical Calculation for our Model\nOur pendulum assembly consists of two distinct physical bodies:\n\n1. **The Cylindrical Rod**:\n   * Mass: $m_{\\text{rod}} = 1.0\\text{ kg}$, Length: $L = 0.5\\text{ m}$\n   * Center of mass distance: $r_{\\text{rod}} = 0.25\\text{ m}$\n   * $\\tau_{\\text{rod}} = 1.0 \\times 9.81 \\times 0.25 = 2.4525\\text{ N}\\cdot\\text{m}$\n\n2. **The Tip Sphere**:\n   * Mass from volume: $m_{\\text{sphere}} \\approx 0.268\\text{ kg}$, Distance: $0.50\\text{ m}$\n   * $\\tau_{\\text{sphere}} = 0.268 \\times 9.81 \\times 0.50 = 1.3145\\text{ N}\\cdot\\text{m}$\n\n$$\\tau_{\\text{total}} = 2.4525 + 1.3145 \\approx 3.77\\text{ N}\\cdot\\text{m}$$\n\nWhen starting at rest (`qvel = 0.0`), commanding `data.ctrl[0] = 3.77` balances gravity at horizontal."
     },
     {
       "id": "1.4",
       "phase": "Phase 1: The Dot",
-      "title": "Feedback Control: From Pure P to PD Control",
+      "title": "Feedback Control: Proportional-Derivative (PD) Control",
       "status": "completed",
-      "xp": 100,
+      "xp": 200,
       "g1_connection": "Every low-level motor drive on the Unitree G1 humanoid runs a high-frequency (1 kHz) PD loop locally on its microcontrollers. When high-level AI policies (like Diffusion Policy or ACT) output action chunks, they are sending target joint angles (q_target) to these PD controllers.",
       "quiz": {
-        "question": "What happens if you use a pure Proportional (P) controller without any Derivative (D) term or friction?",
+        "question": "What is the physical role of the Derivative gain (Kd) in a PD controller?",
         "options": [
-          "The arm reaches the target and stops instantly",
-          "The arm acts like an undamped spring, overshooting the target and oscillating back and forth forever",
-          "The motor burns out immediately",
-          "The arm drops to the floor"
+          "It pushes the arm toward the target like a spring",
+          "It acts like a virtual damper, absorbing kinetic energy and stopping oscillations",
+          "It multiplies the position error",
+          "It cancels gravity completely"
         ],
         "correct": 1,
-        "explanation": "A pure P controller stores energy as a virtual spring. Without a D term (damper) to extract kinetic energy, the arm overshoots and oscillates endlessly."
+        "explanation": "Kd opposes joint velocity (-Kd * qvel), acting as a virtual shock absorber to prevent overshoot and oscillations."
       },
-      "content": "### 1. Why Start with Pure P Control?\n\nBefore understanding PD control, we **must understand P (Proportional) control on its own**.\n\nIn Mission 1.3, we used an open-loop torque ($3.77\\text{ N}\\cdot\\text{m}$). It worked only for $90^\\circ$ when starting from rest. If we want the robot to move from $0^\\circ$ to any arbitrary target angle (e.g. $45^\\circ$ or $90^\\circ$), the motor must react to where it currently is:\n\n$$e(t) = q_{\\text{target}} - q_{\\text{actual}}(t)$$\n$$\\tau_P = K_p \\cdot e(t)$$\n\n#### The Physical Meaning of $K_p$ (The Virtual Spring)\n$K_p$ acts as a **virtual torsional spring** connecting the arm to the target setpoint:\n* When $e$ is large (far from target) $\\rightarrow$ spring pulls hard.\n* When $e = 0$ (at target) $\\rightarrow$ spring exerts zero force.\n\n#### The Fatal Flaw of Pure P Control: Endless Oscillations!\nIf you attach a weight to a physical spring and pull it, does it stop at the center? **No!**\nIt accelerates toward the center, reaches maximum speed right at the target, overshoots to the other side, and bounces back and forth forever!\n**A pure P controller has zero damping.** It converts potential error energy into kinetic speed energy and back again.\n\n---\n\n### 2. Enter the D Term: The Virtual Shock Absorber\n\nTo stop the oscillations, we must add a brake that actively **dissipates kinetic energy**.\nThat is the **Derivative (D) term**:\n\n$$\\tau_D = -K_d \\cdot \\dot{q} = -K_d \\cdot q_{\\text{vel}}$$\n\n#### The Physical Meaning of $K_d$ (The Virtual Damper)\n* When moving fast toward the target, $\\tau_D$ pushes in the **opposite direction of motion**, slowing the arm down just before it hits the target!\n* When the arm is stationary ($\\dot{q} = 0$), the damper exerts **zero force** and does not resist holding.\n\n---\n\n### 3. The Full PD Equation\n\nCombining the virtual spring and the virtual damper yields the complete Proportional-Derivative controller:\n\n$$\\tau(t) = K_p \\cdot (q_{\\text{target}} - q_{\\text{actual}}) - K_d \\cdot q_{\\text{vel}}$$\n\n* **Proportional (P)**: $K_p \\cdot (q_{\\text{target}} - q_{\\text{actual}})$ acts as a virtual spring pulling toward the target.\n* **Derivative (D)**: $-K_d \\cdot q_{\\text{vel}}$ acts as a virtual shock absorber braking the motion.\n\n### 4. Lab Mission: Write 03_pd_controller.py\n\nIn our upcoming hands-on lab:\n1. **Step 1**: Implement pure P control ($K_d = 0$). Witness the overshoot and oscillation firsthand.\n2. **Step 2**: Add the D term ($K_d > 0$). Watch the arm decelerate smoothly and lock onto the target like a precision instrument!"
+      "content": "### 1. The Limitation of Open-Loop Actuation\n\nIn Mission 1.3, we found a specific constant torque ($3.77\\text{ N}\\cdot\\text{m}$) that holds the arm at exactly $90^\\circ$. However, this open-loop strategy cannot steer the robot from an arbitrary starting position to a designated target, nor can it reject external physical disturbances.\n\nTo make a robot autonomous, we must transition from open-loop actuation to **closed-loop feedback control**.\n\n### 2. The Proportional-Derivative (PD) Architecture\n\nThe PD controller continuously observes the actual joint state and calculates control torque as a function of instantaneous state error:\n\n$$e(t) = q_{\\text{target}} - q_{\\text{actual}}(t)$$\n$$\\tau(t) = K_p \\cdot e(t) - K_d \\cdot \\dot{q}_{\\text{actual}}(t)$$\n\n#### The Proportional Term ($K_p \\cdot e$)\nActs as a **virtual torsional spring** anchored between the actual joint position and the target setpoint. The further the arm is from the target, the greater the restoring torque exerted by the motor.\n\n#### The Derivative Term ($-K_d \\cdot \\dot{q}$)\nActs as a **virtual torsional damper**. It opposes rotational velocity, dissipating kinetic energy as the arm moves toward the setpoint. Without the derivative term ($K_d = 0$), the proportional spring causes the arm to overshoot the target and oscillate indefinitely.\n\n### 3. Lab Mission: Build Your First PD Controller\n\n1. Choose a target angle: e.g. $q_{\\text{target}} = 0.785\\text{ rad}$ ($45^\\circ$).\n2. Inside the simulation loop, compute: `error = target - data.qpos[0]`.\n3. Compute torque: `data.ctrl[0] = Kp * error - Kd * data.qvel[0]`.\n4. Tune $K_p$ and $K_d$ to achieve fast, stable convergence without oscillations."
     },
     {
       "id": "1.5",
       "phase": "Phase 1: The Dot",
-      "title": "Phase 1 Boss Fight: The Inverted Pendulum Balance Challenge",
+      "title": "Phase 1 Boss Challenge: Inverted Pendulum Balancing at 180°",
       "status": "completed",
-      "xp": 200,
-      "g1_connection": "Humanoid walking is fundamentally modeled as an 3D Inverted Pendulum (LIPM - Linear Inverted Pendulum Model). If you can stabilize an inverted pendulum against perturbations, you have mastered the core stabilization principle behind bipedal balance.",
-      "quiz": {
-        "question": "Why does an inverted pendulum require almost zero holding torque at exactly 180 degrees (3.14159 rad), but requires high torque at 90 degrees?",
-        "options": [
-          "Gravity shuts down at 180 degrees",
-          "At 180 degrees, the center of mass is balanced directly over the pivot, making gravity torque zero",
-          "The motor turns off automatically at the top",
-          "The air pressure holds it in place"
-        ],
-        "correct": 1,
-        "explanation": "Because gravity torque is tau = -m*g*l*sin(theta), when theta = 180 degrees, sin(180) = 0. The mass is balanced directly above the pivot, requiring zero holding torque at perfect equilibrium."
-      },
-      "content": "### Phase 1 Capstone Challenge: Balancing at 180°\n\nIn this boss challenge, you achieved closed-loop balance of an inverted pendulum under external disturbances:\n\n1. **Equilibrium at the Peak**: At $\\theta = \\pi\\text{ rad}$ ($180^\\circ$), gravity torque is zero ($\\sin(\\pi) = 0$). Unlike holding horizontally, no continuous gravity compensation torque is needed.\n2. **Unstable Equilibrium**: Any microscopic perturbation pushes the mass off-center. Gravity produces a destabilizing torque pulling it downward.\n3. **Closed-Loop Disturbance Rejection**: By commanding:\n\n$$\\tau = K_p \\cdot (\\pi - q_{\\text{pos}}) - K_d \\cdot q_{\\text{vel}}$$\n\nthe controller acts as an active restorative spring and shock absorber, rejecting external shoves injected via `data.qfrc_applied[0]` and returning the arm to upright stability.\n\n---\n\n### Phase 1 Summary: What You Mastered\n* **MuJoCo Core Architecture**: `model` (static metadata) vs `data` (dynamic state).\n* **Generalized Coordinates**: `qpos` (radians), `qvel` (rad/s), and `ctrl` (actuator commands).\n* **Physics Principles**: Gravity torque $\\tau = m g l \\sin(\\theta)$, viscous friction $\\tau = -b \\dot{q}$, and mechanical energy exchange.\n* **Control Theory**: The role of $K_p$ (virtual spring), $K_d$ (virtual damper), and steady-state gravity droop."
+      "xp": 300,
+      "g1_connection": "Humanoid walking is fundamentally modeled as a 3D Inverted Pendulum (LIPM - Linear Inverted Pendulum Model). If you can stabilize an inverted pendulum against perturbations, you have mastered the core stabilization principle behind bipedal balance.",
+      "content": "### Phase 1 Capstone Challenge: Balancing at 180°\n\nIn this boss challenge, you achieved closed-loop balance of an inverted pendulum under external disturbances:\n\n1. **Equilibrium at the Peak**: At $\\theta = \\pi\\text{ rad}$ ($180^\\circ$), gravity torque is zero ($\\sin(\\pi) = 0$). Unlike holding horizontally, no continuous gravity compensation torque is needed.\n2. **Unstable Equilibrium**: Any microscopic perturbation pushes the mass off-center. Gravity produces a destabilizing torque pulling it downward.\n3. **Closed-Loop Disturbance Rejection**: By commanding:\n\n$$\\tau = K_p \\cdot (\\pi - q_{\\text{pos}}) - K_d \\cdot q_{\\text{vel}}$$\n\nthe controller acts as an active restorative spring and shock absorber, rejecting external shoves injected via `data.qfrc_applied[0]` and returning the arm to upright stability."
     },
     {
       "id": "2.1",
       "phase": "Phase 2: The Line",
       "title": "2-DoF Planar Arm & Forward Kinematics (FK)",
-      "status": "in_progress",
+      "status": "completed",
       "xp": 150,
       "g1_connection": "Each arm of the Unitree G1 has 7 joints. Forward Kinematics (FK) is the mathematical transformation that calculates the exact 3D Cartesian coordinates (x, y, z) of the robot hand palm relative to the robot torso base from joint angles.",
       "quiz": {
@@ -218,13 +131,13 @@ const PORTAL_DATA = {
         "correct": 1,
         "explanation": "When both joints are fully extended in a straight line (relative elbow angle = 0), the total reach is the sum of both link lengths: l1 + l2 = 0.5 + 0.4 = 0.9m."
       },
-      "content": "### 1. Transitioning to Phase 2: The Robot Enters Cartesian Space\n\nIn Phase 1, our robot was a single degree of freedom. Its world was a single scalar number $\\theta$.\n\nIn the real world, robots do not work in joint space — they work in **Cartesian Task Space** $(x, y, z)$.\nWhen you ask the Unitree G1 humanoid to grab an apple, you do not command individual motor degrees — you specify where the hand must go: *\"Move hand to position $(x=0.4, y=0.1, z=0.8)$\"*.\n\nTo build this intuition, we add a second link and second motor to form a **2-DoF Planar Arm** (a shoulder and an elbow).\n\n---\n\n### 2. MuJoCo Kinematic Trees: Nested Bodies\n\nIn MuJoCo XML, multiple linked bodies are defined as a **nested kinematic tree**:\n\n```xml\n<body name=\"upper_arm\" pos=\"0 0 1.0\">\n  <joint name=\"shoulder\" type=\"hinge\" axis=\"0 1 0\"/>\n  <geom type=\"cylinder\" size=\"0.02 0.2\" pos=\"0 0 -0.2\" mass=\"1.0\"/>\n  \n  <!-- The elbow is a child body nested inside the upper arm -->\n  <body name=\"forearm\" pos=\"0 0 -0.4\">\n    <joint name=\"elbow\" type=\"hinge\" axis=\"0 1 0\"/>\n    <geom type=\"cylinder\" size=\"0.018 0.15\" pos=\"0 0 -0.15\" mass=\"0.8\"/>\n    <!-- End-effector fingertip -->\n    <site name=\"fingertip\" pos=\"0 0 -0.3\"/>\n  </body>\n</body>\n```\n\n* The shoulder rotates the entire upper arm.\n* The elbow rotates the forearm **relative to the upper arm**.\n* When the shoulder moves, the elbow moves with it automatically!\n\n---\n\n### 3. Forward Kinematics (FK) Derivation\n\n**Forward Kinematics (FK)** answers one fundamental question:\n> *\"Given joint angles $(\\theta_1, \\theta_2)$, where is the tip of the arm $(x, z)$ in the world?\"*\n\nLet link 1 have length $l_1$ at angle $\\theta_1$ (relative to vertical hanging).\nLet link 2 have length $l_2$ at relative angle $\theta_2$ (relative to link 1).\n\n#### The Analytical Trigonometric Equations\n1. **Shoulder to Elbow**:\n   $$x_1 = l_1 \\cdot \\sin(\\theta_1)$$\n   $$z_1 = -l_1 \\cdot \\cos(\\theta_1)$$\n\n2. **Elbow to Fingertip** (The forearm points at absolute angle $\\theta_1 + \\theta_2$):\n   $$x_{\\text{tip}} = l_1 \\cdot \\sin(\\theta_1) + l_2 \\cdot \\sin(\\theta_1 + \\theta_2)$$\n   $$z_{\\text{tip}} = -l_1 \\cdot \\cos(\\theta_1) - l_2 \\cdot \\cos(\\theta_1 + \\theta_2)$$\n\n---\n\n### 4. MuJoCo's Built-In FK Engine\n\nMuJoCo computes forward kinematics on every simulation step automatically! You can query any link or site's exact 3D Cartesian coordinates directly from `data`:\n\n```python\n# 3D Cartesian position of body or site in world frame\ntip_pos = data.site('fingertip').xpos  # [x, y, z]\n```\n\nIn our next lab, we will build `learning/02_the_line/double_pendulum.xml` and verify our hand-derived trigonometric FK formulas against MuJoCo's internal physics engine!"
+      "content": "### 1. Transitioning to Phase 2: Cartesian Task Space\n\nIn Phase 1, the robot had a single degree of freedom ($q = \\theta$). \nIn real-world robotics, tasks are commanded in **Cartesian Task Space** $(x, y, z)$. When commanding the Unitree G1 to grasp an object, the high-level planner specifies: *\"Move hand to position $(x=0.4, y=0.1, z=0.8)$\"*.\n\nTo study this, we analyze a **2-DoF Planar Arm** operating in the $(X, Z)$ vertical plane.\n\n---\n\n### 2. MuJoCo Kinematic Trees: Nested Body Hierarchy\n\nIn MuJoCo XML, multi-link mechanisms are declared as a **nested kinematic tree**:\n\n```xml\n<body name=\"upper_arm\" pos=\"0 0 1.0\">\n  <joint name=\"shoulder\" type=\"hinge\" axis=\"0 1 0\"/>\n  <geom type=\"cylinder\" size=\"0.02 0.2\" pos=\"0 0 -0.2\" mass=\"1.0\"/>\n  \n  <!-- Forearm is a child body nested inside upper_arm -->\n  <body name=\"forearm\" pos=\"0 0 -0.4\">\n    <joint name=\"elbow\" type=\"hinge\" axis=\"0 1 0\"/>\n    <geom type=\"cylinder\" size=\"0.018 0.15\" pos=\"0 0 -0.15\" mass=\"0.8\"/>\n    <site name=\"fingertip\" pos=\"0 0 -0.3\"/>\n  </body>\n</body>\n```\n\n* The child body position `pos=\"0 0 -0.4\"` is relative to the parent frame (`upper_arm`).\n* When the shoulder joint rotates, the forearm body automatically rotates and translates with it.\n\n---\n\n### 3. Forward Kinematics (FK) Derivation from First Principles\n\nLet $l_1 = 0.4\\text{ m}$ (upper arm length) and $l_2 = 0.3\\text{ m}$ (forearm length).\nLet the shoulder pivot be located at $(x_0, z_0) = (0, 1.0)$.\nLet $q_1$ be the shoulder angle relative to downward vertical.\nLet $q_2$ be the elbow angle relative to the extended upper arm.\n\n#### Step 1: Shoulder to Elbow (Link 1)\n$$x_1 = l_1 \\sin(q_1)$$\n$$z_1 = z_0 - l_1 \\cos(q_1)$$\n\n#### Step 2: Elbow to Fingertip (Link 2)\nThe forearm points at absolute angle $(q_1 + q_2)$ relative to downward vertical:\n$$x_{\\text{tip}} = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$\n$$z_{\\text{tip}} = z_0 - l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2)$$\n\nIn `01_fk.py`, this hand-derived formula matches MuJoCo's C-level engine (`data.site(\"fingertip\").xpos`) to 8 decimal places!"
     },
     {
       "id": "2.2",
       "phase": "Phase 2: The Line",
       "title": "Analytical Inverse Kinematics (IK) & The Law of Cosines",
-      "status": "pending",
+      "status": "completed",
       "xp": 150,
       "g1_connection": "When you want the Unitree G1 to reach for an apple on a table, the high-level planner specifies the apple's 3D Cartesian coordinates. Inverse Kinematics calculates the exact shoulder, elbow, and wrist angles required for the hand to arrive at that target.",
       "quiz": {
@@ -238,13 +151,13 @@ const PORTAL_DATA = {
         "correct": 1,
         "explanation": "Given link lengths l1 and l2, you can bend the elbow either outward (elbow-down) or inward (elbow-up) to hit the exact same target coordinate (x, z)."
       },
-      "content": "### 1. The Inverse Problem: Cartesian Target to Joint Angles\n\nWhile **Forward Kinematics (FK)** calculates position from angles:\n$$(\\theta_1, \\theta_2) \\longrightarrow (x, z)$$\n\n**Inverse Kinematics (IK)** solves the exact opposite:\n$$(x, z) \\longrightarrow (\\theta_1, \\theta_2)$$\n\nThis is the core algorithm running behind every robotic arm manipulation task.\n\n---\n\n### 2. Analytical Derivation using The Law of Cosines\n\nConsider the triangle formed by the shoulder pivot $(0, 0)$, the elbow joint, and the target $(x, z)$:\n* Side $a = l_1$ (upper arm)\n* Side $b = l_2$ (forearm)\n* Side $c = r = \\sqrt{x^2 + z^2}$ (distance from shoulder to target)\n\n#### Step 1: Solve for the Elbow Angle ($\\theta_2$)\nBy the Law of Cosines on the elbow angle:\n$$r^2 = l_1^2 + l_2^2 + 2 l_1 l_2 \\cos(\\theta_2)$$\n$$\\cos(\\theta_2) = \\frac{r^2 - l_1^2 - l_2^2}{2 l_1 l_2}$$\n\nUsing $\\arccos$ gives two symmetric solutions:\n$$\\theta_2 = \\pm \\arccos\\left(\\frac{x^2 + z^2 - l_1^2 - l_2^2}{2 l_1 l_2}\\right)$$\n* **Positive solution ($+\\theta_2$)**: Elbow bends one way (elbow-down / outward).\n* **Negative solution ($-\\theta_2$)**: Elbow bends the opposite way (elbow-up / inward).\n\n#### Step 2: Solve for the Shoulder Angle ($\\theta_1$)\nUsing trigonometry between the baseline angle to the target and the internal triangle angle:\n$$\\theta_1 = \\text{atan2}(x, -z) - \\text{atan2}(l_2 \\sin(\\theta_2), l_1 + l_2 \\cos(\\theta_2))$$\n\n---\n\n### 3. Reachability Checks\nBefore calculating $\\arccos$, we must verify if the target is physically reachable:\n1. If $r > l_1 + l_2$: Target is **too far** (outside workspace).\n2. If $r < |l_1 - l_2|$: Target is **too close** (arm cannot fold that tightly).\n\nIf either condition occurs, the argument to $\\arccos$ exceeds $[-1, 1]$, and no physical solution exists!"
+      "content": "### 1. The Inverse Problem: Cartesian Target to Joint Angles\n\nWhile **Forward Kinematics (FK)** maps:\n$$(q_1, q_2) \\longrightarrow (x, z)$$\n\n**Inverse Kinematics (IK)** solves the reverse transformation:\n$$(x, z) \\longrightarrow (q_1, q_2)$$\n\nUnlike FK (which is a deterministic one-to-one function), IK is non-linear and can have zero, two, or infinite solutions.\n\n---\n\n### 2. Analytical Derivation Using the Triangle Geometry\n\nLet the shoulder pivot be at $(x_0, z_0) = (0, 1.0)$.\nFor a target $(x^*, z^*)$, compute offsets relative to the shoulder:\n$$\\Delta x = x^* - x_0, \\quad \\Delta z = z^* - z_0$$\n$$r = \\sqrt{\\Delta x^2 + \\Delta z^2}$$\n\nConsider the triangle formed by Shoulder ($S$), Elbow ($E$), and Target ($T$):\n* Side $a = l_1$\n* Side $b = l_2$\n* Side $c = r$\n\n#### Step 1: Solving for Elbow Angle ($q_2$)\nThe internal triangle angle at the elbow is $\\phi = 180^\\circ - q_2$.\nBy the Law of Cosines:\n$$r^2 = l_1^2 + l_2^2 - 2 l_1 l_2 \\cos(180^\\circ - q_2) = l_1^2 + l_2^2 + 2 l_1 l_2 \\cos(q_2)$$\n$$\\cos(q_2) = \\frac{r^2 - l_1^2 - l_2^2}{2 l_1 l_2}$$\n\nBecause $\\cos(q_2) = \\cos(-q_2)$, two symmetric branches exist:\n$$q_2 = \\pm \\arccos\\left(\\frac{r^2 - l_1^2 - l_2^2}{2 l_1 l_2}\\right)$$\n* **Elbow-Down ($+q_2$)**: Forearm bends outward/forward.\n* **Elbow-Up ($-q_2$)**: Forearm bends inward/backward.\n\n#### Step 2: Solving for Shoulder Angle ($q_1$)\nUsing vector decomposition in the upper arm's local coordinate frame:\n$$q_1 = \\alpha - \\psi$$\n* **Sightline angle $\\alpha$**: Direction from shoulder to target:\n  $$\\alpha = \\text{atan2}(\\Delta x, -\\Delta z)$$\n* **Internal triangle angle $\\psi$**: Angle between upper arm and target sightline:\n  $$\\psi = \\text{atan2}(l_2 \\sin(q_2), \\; l_1 + l_2 \\cos(q_2))$$"
     },
     {
       "id": "2.3",
       "phase": "Phase 2: The Line",
       "title": "Singularities, Reachability, & Workspace Boundaries",
-      "status": "pending",
+      "status": "completed",
       "xp": 150,
       "g1_connection": "When the Unitree G1 stretches its arm straight out, it encounters a kinematic singularity. If an algorithm asks it to move faster outward, required motor velocities explode toward infinity, causing joint shudder or actuator shutdown.",
       "quiz": {
@@ -258,13 +171,13 @@ const PORTAL_DATA = {
         "correct": 1,
         "explanation": "At theta_2 = 0, the arm is fully outstretched. It cannot move further outward no matter how much joint velocity is applied, meaning it has lost 1 Cartesian degree of freedom."
       },
-      "content": "### 1. What is a Kinematic Singularity?\n\nA **singularity** is a robot posture where the manipulator **loses one or more degrees of freedom** in Cartesian task space.\n\nAt a singularity:\n1. The arm cannot move in certain Cartesian directions, no matter what joint torques or velocities you apply.\n2. Inverting the kinematics matrix (the Jacobian) requires dividing by zero ($|J| = 0$).\n3. Small Cartesian motion requests near the boundary command near-infinite joint speeds!\n\n---\n\n### 2. The Two Singularities of a 2-Link Planar Arm\n\n1. **Boundary Singularity (Maximum Stretch)**:\n   $$\\theta_2 = 0^\\circ$$\n   * Both links align into a single straight line: $r = l_1 + l_2$.\n   * The arm can swing sideways, but cannot move **even $1\\text{ mm}$ radially outward**!\n2. **Internal Fold Singularity (Full Retraction)**:\n   $$\\theta_2 = 180^\\circ$$\n   * Link 2 folds flat backwards onto link 1: $r = |l_1 - l_2|$.\n   * The arm cannot move inward any further.\n\n---\n\n### 3. Engineering Workarounds in Production Humanoids\nOn real humanoids like the Unitree G1:\n* Controllers clamp targets to $95\\%$ of the maximum reach ($r_{\\text{safe}} = 0.95 \\cdot (l_1 + l_2)$).\n* Solvers use **Damped Least Squares (DLS)** instead of pure matrix inversion to keep joint velocities bounded near singularities."
+      "content": "### 1. What is a Kinematic Singularity?\n\nA **singularity** is a robot posture where the manipulator **loses one or more degrees of freedom** in Cartesian task space.\n\nAt a singularity:\n1. The arm cannot move in certain Cartesian directions, no matter what joint torques or velocities you apply.\n2. The Jacobian matrix loses rank (its determinant becomes zero: $\\det(J) = 0$).\n3. Small Cartesian motion requests command near-infinite joint velocities.\n\n---\n\n### 2. The Two Singularities of a 2-Link Planar Arm\n\n1. **Outer Boundary Singularity (Maximum Stretch)**:\n   $$q_2 = 0^\\circ \\implies r = l_1 + l_2$$\n   * Both links align into a single straight line ($r = 0.4 + 0.3 = 0.7\\text{ m}$).\n   * The arm can swing tangentially, but **cannot produce any velocity radially outward**.\n2. **Inner Fold Singularity (Full Retraction)**:\n   $$q_2 = 180^\\circ \\implies r = |l_1 - l_2|$$\n   * The forearm folds completely backward onto the upper arm like a pocket knife ($r = |0.4 - 0.3| = 0.1\\text{ m}$).\n   * The arm cannot move inward any closer to the shoulder.\n\n---\n\n### 3. Numerical Precision Hazards & Safe Clamping\n\nIn floating-point arithmetic (IEEE 754), evaluating $\\frac{r^2 - l_1^2 - l_2^2}{2 l_1 l_2}$ at boundary $r = 0.1$ can produce `-1.0000000000000002` due to rounding. \nBecause this strictly exceeds $[-1, 1]$, `math.acos()` crashes with `ValueError: math domain error`.\n\n#### The Professional Guard:\n```python\n# 1. Workspace Boundary Clamping\nif r > (l1 + l2):\n    scale = (l1 + l2) / r\n    delta_x *= scale; delta_z *= scale; r = l1 + l2\nelif r < abs(l1 - l2):\n    scale = abs(l1 - l2) / r\n    delta_x *= scale; delta_z *= scale; r = abs(l1 - l2)\n\n# 2. Numerical Domain Clipping\ncos_q2 = (r**2 - l1**2 - l2**2) / (2 * l1 * l2)\ncos_q2 = max(-1.0, min(1.0, cos_q2))\nq2 = math.acos(cos_q2)\n```"
     },
     {
       "id": "2.4",
       "phase": "Phase 2: The Line",
       "title": "Cartesian Path Following & Waypoint Interpolation",
-      "status": "pending",
+      "status": "completed",
       "xp": 180,
       "g1_connection": "When the G1 wipes a whiteboard or slides a box along a table, the fingertip must follow a perfectly straight Cartesian line in 3D space rather than swinging through arbitrary curved arcs.",
       "quiz": {
@@ -278,16 +191,85 @@ const PORTAL_DATA = {
         "correct": 1,
         "explanation": "Because x = l1*sin(q1) + l2*sin(q1+q2) is non-linear, linear changes in (q1, q2) sweep circular arcs in (x, z) space rather than straight lines."
       },
-      "content": "### 1. Joint Space vs. Cartesian Space Trajectories\n\nIf we have a start position $A$ and goal position $B$:\n* **Joint Interpolation**: Interpolate $\\theta(t) = \\theta_A + t \\cdot (\\theta_B - \\theta_A)$. The motors move smoothly, but the fingertip sweeps a **curved banana-shaped arc** in the air!\n* **Cartesian Interpolation**: Interpolate $P(t) = P_A + t \\cdot (P_B - P_A)$. The fingertip moves in a **perfect straight line**, but the joints must continuously recalculate non-linear IK solutions.\n\n---\n\n### 2. High-Frequency IK Control Loop\n\nTo move in a straight line:\n1. Generate intermediate Cartesian waypoints along the line segment at $500\\text{ Hz}$.\n2. Solve analytical IK on every timestep to get $(\\theta_{1, \\text{target}}, \\theta_{2, \\text{target}})$.\n3. Feed these target angles into your joint PD controllers.\n\nIn our upcoming Phase 2 lab missions, you will implement this exact straight-line drawing controller!"
+      "content": "### 1. Joint Space vs. Cartesian Space Trajectories\n\nGiven a start waypoint $A = (x_A, z_A)$ and goal waypoint $B = (x_B, z_B)$:\n\n#### Approach A: Joint-Space Interpolation (The Banana Arc)\n* Solve IK at endpoints: $q_A = \\text{IK}(A)$, $q_B = \\text{IK}(B)$.\n* Interpolate joint angles linearly: $q(t) = q_A + s(t) \\cdot (q_B - q_A)$.\n* **Result**: Because Forward Kinematics $x(t) = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$ is a sum of harmonic sinusoids, linear joint motions produce a **curved circular arc** in the air.\n\n#### Approach B: Cartesian-Space Interpolation (The Laser Line)\n* Interpolate Cartesian coordinates linearly:\n  $$x(t) = x_A + s(t) \\cdot (x_B - x_A)$$\n  $$z(t) = z_A + s(t) \\cdot (z_B - z_A)$$\n* On **every simulation step**, solve:\n  $$q(t) = \\text{IK}(x(t), z(t))$$\n* **Result**: The joint angles move along non-linear curves that dynamically adjust the arm's reach, keeping the fingertip on a **laser-straight Cartesian line**!\n\n---\n\n### 2. Smooth Continuous Reversing\nTo move continuously back and forth between $A$ and $B$ without teleporting:\n* Define a signed step $\\Delta s = 0.005$.\n* On each step: $s \\leftarrow s + \\Delta s$.\n* When $s \\ge 1.0$ or $s \\le 0.0$, invert direction: $\\Delta s \\leftarrow -\\Delta s$."
     },
     {
       "id": "3.1",
       "phase": "Phase 3: The Shape",
-      "title": "3D Manipulators & The Jacobian Matrix",
-      "status": "pending",
+      "title": "Velocity Kinematics & The 2-DoF Jacobian Matrix",
+      "status": "in_progress",
       "xp": 200,
-      "g1_connection": "The official UniBot challenge uses Damped Least Squares Jacobian Inverse Kinematics in run_sim.py. In Phase 3, you will derive and understand this exact mathematical matrix yourself.",
-      "content": "### Roadmap Preview: Spatial Manipulators & Jacobians\n\nPhase 3 transitions to 6-DoF spatial manipulators, mapping end-effector Cartesian velocities to joint velocities via the Jacobian matrix $J(q)$."
+      "g1_connection": "On the Unitree G1 humanoid, the arm has 7 degrees of freedom in 3D space. You cannot use the Law of Cosines on 7 joints! The G1 control system uses the 6x7 Jacobian matrix J(q) running at 1 kHz in run_sim.py to map joint motor velocities to 3D hand velocities.",
+      "quiz": {
+        "question": "What mathematical operation produces the Jacobian matrix J(q) from Forward Kinematics f(q)?",
+        "options": [
+          "Matrix inversion",
+          "First-order partial derivatives with respect to joint angles",
+          "Numerical integration",
+          "Cross product with gravity"
+        ],
+        "correct": 1,
+        "explanation": "The Jacobian is the matrix of partial derivatives J_ij = d(x_i) / d(q_j), mapping joint velocities dq/dt to Cartesian velocities dx/dt."
+      },
+      "content": "### 1. Why Do We Need the Jacobian Matrix?\n\nIn Phase 2, we solved Inverse Kinematics using high-school trigonometry (Law of Cosines). This succeeded only because the arm had **2 links in a 2D plane**.\n\nWhen a robot arm has:\n* 3 links in a plane,\n* 6 links in 3D space (industrial robots like UR5 or KUKA),\n* **7 links in 3D space (the Unitree G1 humanoid arm)**,\n\nthere is **no simple triangle** to apply the Law of Cosines to! Analytical trigonometry completely breaks down.\n\nTo control multi-joint spatial robots, modern robotics relies on **Differential Velocity Kinematics** via the **Jacobian Matrix ($J$)**.\n\n---\n\n### 2. Definition of the Jacobian Matrix\n\nForward Kinematics maps joint positions to Cartesian position:\n$$\\mathbf{x} = f(\\mathbf{q})$$\n\nTaking the total time derivative using the multivariate chain rule:\n$$\\dot{\\mathbf{x}} = \\frac{\\partial f}{\\partial \\mathbf{q}} \\cdot \\dot{\\mathbf{q}} = \\mathbf{J}(\\mathbf{q}) \\cdot \\dot{\\mathbf{q}}$$\n\nThe **Jacobian Matrix $J(q)$** is the matrix of first-order partial derivatives:\n$$J_{ij} = \\frac{\\partial x_i}{\\partial q_j}$$\n\nIt acts as a linear transformation mapping **joint velocities $\\dot{\\mathbf{q}}$ (rad/s)** to **Cartesian end-effector velocity $\\mathbf{v}$ (m/s)**!\n\n---\n\n### 3. Step-by-Step Calculus Derivation for Our 2-DoF Arm\n\nRecall our Forward Kinematics equations:\n$$x = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$\n$$z = -l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2)$$\n\nThe Jacobian is a $2 \\times 2$ matrix:\n$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} \\frac{\\partial x}{\\partial q_1} & \\frac{\\partial x}{\\partial q_2} \\\\[6pt] \\frac{\\partial z}{\\partial q_1} & \\frac{\\partial z}{\\partial q_2} \\end{bmatrix}$$\n\n#### Differentiating $x$ with respect to $q_1$ and $q_2$:\n* With respect to $q_1$:\n  $$\\frac{\\partial x}{\\partial q_1} = l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2)$$\n* With respect to $q_2$:\n  $$\\frac{\\partial x}{\\partial q_2} = l_2 \\cos(q_1 + q_2)$$\n\n#### Differentiating $z$ with respect to $q_1$ and $q_2$:\n* With respect to $q_1$ (recalling $\\frac{d}{du}(-\\cos u) = \\sin u$):\n  $$\\frac{\\partial z}{\\partial q_1} = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$\n* With respect to $q_2$:\n  $$\\frac{\\partial z}{\\partial q_2} = l_2 \\sin(q_1 + q_2)$$\n\n#### The Complete 2-DoF Analytical Jacobian:\n$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2) & l_2 \\cos(q_1 + q_2) \\\\[6pt] l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) & l_2 \\sin(q_1 + q_2) \\end{bmatrix}$$\n\n---\n\n### 4. The Physical Meaning of the Columns\n\nLook at the two columns of $J$:\n$$\\mathbf{J} = \\begin{bmatrix} \\mathbf{J}_1 & \\mathbf{J}_2 \\end{bmatrix}$$\n\n* **Column 1 ($\\mathbf{J}_1$)**: The Cartesian velocity of the fingertip if **only Joint 1 rotates at $1\\text{ rad/s}$** (with Joint 2 locked).\n* **Column 2 ($\\mathbf{J}_2$)**: The Cartesian velocity of the fingertip if **only Joint 2 rotates at $1\\text{ rad/s}$** (with Joint 1 locked).\n\nBecause velocities superimpose linearly:\n$$\\mathbf{v} = \\mathbf{J}_1 \\dot{q}_1 + \\mathbf{J}_2 \\dot{q}_2$$\n\nIn our next mission, we will invert this matrix to command Cartesian velocities directly!"
+    },
+    {
+      "id": "3.2",
+      "phase": "Phase 3: The Shape",
+      "title": "Differential Inverse Kinematics & Matrix Inversion",
+      "status": "pending",
+      "xp": 220,
+      "g1_connection": "In run_sim.py, when the Unitree G1 humanoid tracks a hand velocity trajectory, it inverts the Jacobian at every 1 ms timestep to compute target joint velocities: dq = J^-1 * v.",
+      "quiz": {
+        "question": "What is the determinant of our 2-DoF arm's Jacobian, and when does it equal zero?",
+        "options": [
+          "det(J) = l1*l2*cos(q2), zero when q2 = 90 deg",
+          "det(J) = l1*l2*sin(q2), zero when q2 = 0 deg or 180 deg",
+          "det(J) = l1 + l2, never zero",
+          "det(J) = 1"
+        ],
+        "correct": 1,
+        "explanation": "Evaluating det(J) gives l1*l2*sin(q2). When q2 = 0 or 180 (the boundary singularities), sin(q2) = 0 and the matrix cannot be inverted."
+      },
+      "content": "### 1. Inverting the Velocity Mapping\n\nWe know that:\n$$\\mathbf{v} = \\mathbf{J}(\\mathbf{q}) \\cdot \\dot{\\mathbf{q}}$$\n\nTo solve **Inverse Kinematics at the velocity level**:\nGiven a desired Cartesian velocity $\\mathbf{v} = [v_x, v_z]^T$, what joint velocities $\\dot{\\mathbf{q}} = [\\dot{q}_1, \\dot{q}_2]^T$ must we command?\n\nBy inverting the Jacobian matrix:\n$$\\dot{\\mathbf{q}} = \\mathbf{J}(\\mathbf{q})^{-1} \\cdot \\mathbf{v}$$\n\n---\n\n### 2. Analytical Inverse of a 2x2 Matrix\n\nFor any $2 \\times 2$ matrix:\n$$A = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix} \\implies A^{-1} = \\frac{1}{\\det(A)} \\begin{bmatrix} d & -b \\\\ -c & a \\end{bmatrix}$$\nwhere $\\det(A) = ad - bc$.\n\n#### Computing the Determinant of our 2-DoF Jacobian:\n$$\\det(\\mathbf{J}) = \\left[l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_2 \\sin(q_1 + q_2)\\right] - \\left[l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)\\right]$$\n\nExpanding the terms:\n$$\\det(\\mathbf{J}) = l_1 l_2 \\left[\\cos(q_1) \\sin(q_1 + q_2) - \\sin(q_1) \\cos(q_1 + q_2)\\right]$$\n\nApplying the trigonometric angle subtraction identity $\\sin(A - B) = \\sin(A)\\cos(B) - \\cos(A)\\sin(B)$:\n$$\\det(\\mathbf{J}) = l_1 l_2 \\sin((q_1 + q_2) - q_1) = \\mathbf{l_1 l_2 \\sin(q_2)}$$\n\nLook at how elegant this result is:\n**The determinant depends ONLY on the elbow angle $q_2$!**\n\n---\n\n### 3. The Mathematical Proof of Singularities\n\nWhen is $\\det(\\mathbf{J}) = 0$?\n$$\\det(\\mathbf{J}) = 0 \\iff \\sin(q_2) = 0 \\iff \\mathbf{q_2 = 0^\\circ \\quad \\text{or} \\quad q_2 = 180^\\circ}$$\n\n* At $q_2 = 0^\\circ$ (arm fully outstretched): $\\det(\\mathbf{J}) = 0$.\n* At $q_2 = 180^\\circ$ (arm folded flat): $\\det(\\mathbf{J}) = 0$.\n\nBecause $\\det(\\mathbf{J}) = 0$, **the Jacobian cannot be inverted**! \nDividing by zero causes required joint velocities to explode toward infinity: $\\dot{q} \\to \\infty$.\n\nThis algebraically proves the two physical singularities we discovered in Phase 2!"
+    },
+    {
+      "id": "3.3",
+      "phase": "Phase 3: The Shape",
+      "title": "Damped Least Squares (DLS) & Singularity Robustness",
+      "status": "pending",
+      "xp": 250,
+      "g1_connection": "In run_sim.py, the UniBot controller implements Damped Least Squares Jacobian Inverse Kinematics. This ensures the robot never experiences numerical explosions or joint shudder when limbs reach full extension.",
+      "quiz": {
+        "question": "What is the primary benefit of Damped Least Squares (DLS) over pure matrix inversion near singularities?",
+        "options": [
+          "It makes the motors run faster",
+          "It bounds joint velocities, trading tiny tracking error for numerical stability and preventing infinite speeds",
+          "It eliminates gravity",
+          "It removes the need for sensors"
+        ],
+        "correct": 1,
+        "explanation": "DLS adds a damping factor lambda^2 that regularizes the inversion, keeping joint velocities strictly bounded near singular configurations."
+      },
+      "content": "### 1. The Problem with Pure Inversion Near Singularities\n\nWhen a robot's hand approaches the workspace boundary ($r \\to l_1 + l_2$), $\\det(J) \\to 0$.\nEven if the desired Cartesian velocity is small ($v = 0.01\\text{ m/s}$), pure inversion commands:\n$$\\dot{q} = J^{-1} v = \\frac{1}{\\det(J)} \\cdot [\\dots] \\approx \\frac{1}{0.0001} \\times 0.01 = \\mathbf{100\\text{ rad/s (Violent Joint Shudder!)}}$$\n\nIn real hardware, this blows motor fuses or triggers emergency torque shutoffs.\n\n---\n\n### 2. The Levenberg-Marquardt / Damped Least Squares (DLS) Solution\n\nInstead of solving the exact equation $J \\dot{q} = v$, DLS solves an **optimization problem**:\n$$\\min_{\\dot{q}} \\; \\|J \\dot{q} - v\\|^2 + \\lambda^2 \\|\\dot{q}\\|^2$$\n\n* Term 1 ($\\|J \\dot{q} - v\\|^2$): Minimize Cartesian tracking error.\n* Term 2 ($\\lambda^2 \\|\\dot{q}\\|^2$): Penalize large joint velocities (damping).\n\nThe closed-form analytical solution is the **Damped Pseudoinverse**:\n$$\\mathbf{J^\\dagger = J^T (J J^T + \\lambda^2 I)^{-1}}$$\n\nWhere:\n* $\\lambda$ is the **damping coefficient** (e.g. $\\lambda = 0.05$).\n* $I$ is the identity matrix.\n\n#### Why DLS Never Fails:\n* Far from singularities: $\\lambda^2 \\ll \\det(J)$, so $J^\\dagger \\approx J^{-1}$ (perfect tracking).\n* Near singularities: $\\lambda^2$ prevents the denominator from approaching zero, keeping $\\dot{q}$ strictly bounded!\n\nThis is the exact algorithm running in `run_sim.py` for the Unitree G1 humanoid!"
+    },
+    {
+      "id": "3.4",
+      "phase": "Phase 3: The Shape",
+      "title": "Tracing 2D Parametric Shapes (Circles & Closed Curves)",
+      "status": "pending",
+      "xp": 250,
+      "g1_connection": "When the Unitree G1 turns a steering wheel, polishes a curved tabletop, or turns a valve, it tracks continuous 2D/3D parametric curves in task space using closed-loop Cartesian trajectory tracking.",
+      "content": "### 1. From Lines to Shapes\n\nIn Phase 2, you made the arm trace a 1D line segment. \nNow, we expand to **2D closed curves**: circles, ellipses, and polygons.\n\nA circle of radius $R$ centered at $(x_c, z_c)$ is parameterized by:\n$$x(t) = x_c + R \\cos(\\omega t)$$\n$$z(t) = z_c + R \\sin(\\omega t)$$\n\nTaking time derivatives gives the analytical feedforward velocity:\n$$\\dot{x}(t) = -R \\omega \\sin(\\omega t)$$\n$$\\dot{z}(t) = R \\omega \\cos(\\omega t)$$\n\n---\n\n### 2. Closed-Loop Cartesian Velocity Control\n\nTo prevent numerical drift over long simulation runs, controllers combine feedforward velocity with proportional position error feedback:\n\n$$\\mathbf{v}_{\\text{cmd}} = \\mathbf{v}_{\\text{desired}} + K_p \\cdot (\\mathbf{x}_{\\text{desired}} - \\mathbf{x}_{\\text{actual}})$$\n\nThen, at every simulation step:\n1. Compute $\\mathbf{v}_{\\text{cmd}}$.\n2. Solve $\\dot{\\mathbf{q}} = \\mathbf{J}^\\dagger \\mathbf{v}_{\\text{cmd}}$.\n3. Integrate joint position: $\\mathbf{q}_{\\text{next}} = \\mathbf{q} + \\dot{\\mathbf{q}} \\Delta t$.\n4. Set `data.qpos = q_next` and watch the arm trace a **perfect, continuous circle**!"
+    },
+    {
+      "id": "3.5",
+      "phase": "Phase 3: The Shape",
+      "title": "Scaling to 3D & The 7-DoF Unitree G1 Humanoid Arm",
+      "status": "pending",
+      "xp": 300,
+      "g1_connection": "This is the direct bridge to the official UniBot challenge. You will inspect models/unitree_g1/g1.xml, understand its 7 arm joints, and use MuJoCo's built-in Jacobian engine (mj_jacSite) to command 3D hand poses.",
+      "content": "### 1. Transitioning to 6D Spatial Task Space\n\nIn 3D space, an end-effector has **6 degrees of freedom**:\n* 3 Translational: $(x, y, z)$\n* 3 Rotational: $(\\omega_x, \\omega_y, \\omega_z)$ or roll, pitch, yaw.\n\nThe spatial Jacobian has shape **$6 \\times n$**, where $n$ is the number of arm joints.\n\nFor the Unitree G1 arm ($n = 7$ joints):\n$$\\mathbf{J} \\in \\mathbb{R}^{6 \\times 7}$$\n\n$$\\begin{bmatrix} v_x \\\\ v_y \\\\ v_z \\\\[4pt] \\omega_x \\\\ \\omega_y \\\\ \\omega_z \\end{bmatrix} = \\mathbf{J}_{6 \\times 7} \\cdot \\begin{bmatrix} \\dot{q}_1 \\\\ \\dot{q}_2 \\\\ \\vdots \\\\ \\dot{q}_7 \\end{bmatrix}$$\n\n---\n\n### 2. Kinematic Redundancy: Why 7 Joints?\n\nA task in 3D requires 6 degrees of freedom. The G1 arm has 7 joints:\n$$\\text{Redundant DoFs} = 7 - 6 = 1$$\n\nBecause $n > m$, the system has **infinite solutions** for any target hand pose!\n* The robot can hold a cup fixed in space while swiveling its elbow up or down.\n* We can use the extra degree of freedom to **avoid joint limits, dodge obstacles, or minimize energy** using **Null-Space Projection**:\n\n$$\\dot{\\mathbf{q}} = \\mathbf{J}^\\dagger \\mathbf{v} + (\\mathbf{I} - \\mathbf{J}^\\dagger \\mathbf{J}) \\dot{\\mathbf{q}}_{\\text{null}}$$\n\nWhere $(\\mathbf{I} - \\mathbf{J}^\\dagger \\mathbf{J})$ projects secondary goals into the null-space without disturbing the primary hand motion!\n\nIn Phase 3, you will control this exact 7-DoF arm in MuJoCo!"
     }
   ],
   "glossary": [
@@ -386,42 +368,6 @@ const PORTAL_DATA = {
       "category": "Control Theory",
       "summary": "Feedforward torque applied to counteract the weight of the robot links.",
       "details": "Torque calculated from the link masses and lever arms such that the gravitational pull is exactly neutralized, allowing the robot to feel weightless."
-    },
-    {
-      "term": "End-Effector",
-      "category": "Robotics Kinematics",
-      "summary": "The terminal tool or tip of a robotic manipulator.",
-      "details": "The device at the end of an arm intended to interact with the environment (e.g. gripper, palm, fingertip, suction cup, welding torch). Kinematics calculations typically compute the pose of this specific frame."
-    },
-    {
-      "term": "Reachable Workspace",
-      "category": "Robotics Kinematics",
-      "summary": "The entire geometric volume that can be reached by the robot end-effector.",
-      "details": "For a 2-DoF planar arm with lengths l1 and l2, the reachable workspace is an annulus (ring) bounded by outer radius r_max = l1 + l2 and inner radius r_min = |l1 - l2|."
-    },
-    {
-      "term": "Kinematic Singularity",
-      "category": "Robotics Kinematics",
-      "summary": "Configurations where a robot loses instantaneous degrees of freedom.",
-      "details": "Posture where the Jacobian matrix loses rank (determinant drops to 0). At a singularity, the arm cannot move in certain Cartesian directions, and inverting kinematics commands infinite joint speeds."
-    },
-    {
-      "term": "Elbow-Up vs. Elbow-Down",
-      "category": "Robotics Kinematics",
-      "summary": "The multiple geometric configurations that reach the same Cartesian target.",
-      "details": "Because the elbow angle solution uses arccos, there are positive and negative angles (+theta_2 and -theta_2). Both place the end-effector at the identical (x, z) point, representing elbow-down or elbow-up postures."
-    },
-    {
-      "term": "data.site('...').xpos",
-      "category": "MuJoCo API",
-      "summary": "3D Cartesian world coordinates of a named site marker.",
-      "details": "Returns a length-3 numpy array [x, y, z] of the exact global world position of a site attached to a body or geom, computed automatically by MuJoCo's forward kinematics engine."
-    },
-    {
-      "term": "Waypoint Interpolation",
-      "category": "Motion Planning",
-      "summary": "Discretizing a continuous Cartesian path into high-frequency intermediate target points.",
-      "details": "Generating intermediate poses between start and goal (e.g. along a line or spline) at fixed time increments (e.g. 500 Hz), solving Inverse Kinematics at each waypoint to produce smooth motor commands."
     }
   ]
 };
