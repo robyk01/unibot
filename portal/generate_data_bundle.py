@@ -491,153 +491,390 @@ To move continuously back and forth between $A$ and $B$ without teleporting:
     {
         "id": "3.1",
         "phase": "Phase 3: The Shape",
-        "title": "Velocity Kinematics & The 2-DoF Jacobian Matrix",
-        "status": "in_progress",
+        "title": "Velocity Kinematics & The 2-DoF Analytical Jacobian",
+        "status": "completed",
         "xp": 200,
-        "g1_connection": "On the Unitree G1 humanoid, the arm has 7 degrees of freedom in 3D space. You cannot use the Law of Cosines on 7 joints! The G1 control system uses the 6x7 Jacobian matrix J(q) running at 1 kHz in run_sim.py to map joint motor velocities to 3D hand velocities.",
+        "g1_connection": "On the Unitree G1 humanoid, each arm has 7 degrees of freedom in 3D space. You cannot use the Law of Cosines on 7 spatial joints! The G1 control system continuously computes the 6x7 Jacobian matrix J(q) at 1 kHz in run_sim.py to map joint motor velocities into 6D Cartesian twists (linear and angular velocities) of the hand.",
         "quiz": {
-            "question": "What mathematical operation produces the Jacobian matrix J(q) from Forward Kinematics f(q)?",
+            "question": "If Joint 1 is moving at dq1/dt = 2.0 rad/s while Joint 2 is held completely stationary (dq2/dt = 0), what is the resulting Cartesian velocity of the fingertip?",
             "options": [
-                "Matrix inversion",
-                "First-order partial derivatives with respect to joint angles",
-                "Numerical integration",
-                "Cross product with gravity"
+                "The velocity is zero because Joint 2 is locked",
+                "The velocity vector is exactly 2.0 * J_1(q) (the first column of the Jacobian scaled by 2)",
+                "The velocity equals the determinant of J(q)",
+                "The velocity cannot be determined without inverting the Jacobian matrix"
             ],
             "correct": 1,
-            "explanation": "The Jacobian is the matrix of partial derivatives J_ij = d(x_i) / d(q_j), mapping joint velocities dq/dt to Cartesian velocities dx/dt."
+            "explanation": "Because v = J_1(q)*dq1 + J_2(q)*dq2, setting dq2 = 0 leaves v = 2.0 * J_1(q). The columns of the Jacobian physically represent the Cartesian velocity vectors produced per unit velocity of each individual joint!"
         },
-        "content": """### 1. Why Do We Need the Jacobian Matrix?
+        "content": """### 1. The Architectural Breakdown of Analytical Inverse Kinematics
 
-In Phase 2, we solved Inverse Kinematics using high-school trigonometry (Law of Cosines). This succeeded only because the arm had **2 links in a 2D plane**.
+In Phase 2, we solved Inverse Kinematics for our 2-DoF planar arm using elementary Euclidean trigonometry (the Law of Cosines). That analytical approach worked smoothly because:
+1. The manipulator was strictly planar ($X$-$Z$ plane).
+2. The kinematic chain had only **2 links and 2 joints**.
+3. The geometry formed a closed triangle between the shoulder, elbow, and target.
 
-When a robot arm has:
-* 3 links in a plane,
-* 6 links in 3D space (industrial robots like UR5 or KUKA),
-* **7 links in 3D space (the Unitree G1 humanoid arm)**,
+#### Why Analytical Trigonometry Fails for General Manipulators
+Real robotic systems—such as 6-DoF industrial manipulators (UR5, KUKA) and **7-DoF humanoid arms (Unitree G1)**—operate in 3D space with multiple coupled degrees of freedom. Their forward kinematics equations form high-degree systems of coupled, transcendental trigonometric equations:
 
-there is **no simple triangle** to apply the Law of Cosines to! Analytical trigonometry completely breaks down.
+$$\\mathbf{x} = f(\\mathbf{q})$$
 
-To control multi-joint spatial robots, modern robotics relies on **Differential Velocity Kinematics** via the **Jacobian Matrix ($J$)**.
+* **The Pieper Criterion**: In robotics mathematics, closed-form analytical inverse kinematics is solvable for 6-DoF arms if and only if three consecutive revolute joint axes intersect at a single point (forming a spherical wrist) or are parallel.
+* **Redundant Manipulators**: For a 7-DoF arm like the Unitree G1, the system is kinematically redundant ($n=7$ joints vs. $m=6$ Cartesian degrees of freedom). There are infinitely many joint configurations that place the hand at the exact same Cartesian pose. Analytical position IK does not exist in closed form.
+
+#### The Breakthrough: Differential Velocity Kinematics
+Instead of attempting to invert non-linear trigonometric equations at the position level, modern robotics shifts to the **differential (velocity) domain**.
+
+* While position forward kinematics $\\mathbf{x} = f(\\mathbf{q})$ is globally **non-linear**,
+* The velocity mapping $\\dot{\\mathbf{x}} = \\mathbf{J}(\\mathbf{q}) \\dot{\\mathbf{q}}$ is **locally linear**!
+
+Solving a linear system of equations $\\mathbf{A}\\mathbf{x} = \\mathbf{b}$ is computationally fast, numerically well-understood, and easily executed at 1,000 Hz on embedded microcontrollers.
 
 ---
 
-### 2. Definition of the Jacobian Matrix
+### 2. Mathematical Definition of the Manipulator Jacobian
 
-Forward Kinematics maps joint positions to Cartesian position:
+Let the robot's configuration be described by a vector of generalized joint coordinates:
+$$\\mathbf{q} = \\begin{bmatrix} q_1 \\\\ q_2 \\\\ \\vdots \\\\ q_n \\end{bmatrix} \\in \\mathbb{R}^n$$
+
+Let the end-effector pose in task space be described by an $m$-dimensional vector:
+$$\\mathbf{x} = \\begin{bmatrix} x_1 \\\\ x_2 \\\\ \\vdots \\\\ x_m \\end{bmatrix} \\in \\mathbb{R}^m$$
+
+The forward kinematics function is:
 $$\\mathbf{x} = f(\\mathbf{q})$$
 
-Taking the total time derivative using the multivariate chain rule:
-$$\\dot{\\mathbf{x}} = \\frac{\\partial f}{\\partial \\mathbf{q}} \\cdot \\dot{\\mathbf{q}} = \\mathbf{J}(\\mathbf{q}) \\cdot \\dot{\\mathbf{q}}$$
+Taking the total time derivative of each Cartesian coordinate $x_i$ using the multivariate chain rule:
+$$\\dot{x}_i = \\frac{d x_i}{dt} = \\sum_{j=1}^n \\frac{\\partial f_i}{\\partial q_j} \\frac{dq_j}{dt} = \\sum_{j=1}^n \\frac{\\partial f_i}{\\partial q_j} \\dot{q}_j$$
 
-The **Jacobian Matrix $J(q)$** is the matrix of first-order partial derivatives:
-$$J_{ij} = \\frac{\\partial x_i}{\\partial q_j}$$
+In compact matrix-vector notation:
+$$\\dot{\\mathbf{x}} = \\mathbf{J}(\\mathbf{q}) \\dot{\\mathbf{q}}$$
 
-It acts as a linear transformation mapping **joint velocities $\\dot{\\mathbf{q}}$ (rad/s)** to **Cartesian end-effector velocity $\\mathbf{v}$ (m/s)**!
+The matrix $\\mathbf{J}(\\mathbf{q}) \\in \\mathbb{R}^{m \\times n}$ is the **Manipulator Jacobian Matrix**, defined element-wise as:
+$$J_{ij}(\\mathbf{q}) = \\frac{\\partial f_i(\\mathbf{q})}{\\partial q_j}$$
+
+* **Number of Rows ($m$)**: The dimension of the Cartesian task space (e.g. $m=2$ for planar translation, $m=3$ for 3D translation, $m=6$ for 3D translation + rotation).
+* **Number of Columns ($n$)**: The number of generalized joint coordinates (e.g. $n=2$ for our planar arm, $n=7$ for the Unitree G1 arm).
+
+> **Crucial Property**: The Jacobian $\\mathbf{J}(\\mathbf{q})$ is **not constant**. It is a function of the instantaneous joint configuration $\\mathbf{q}$. As the robot moves through its workspace, the linear velocity mapping changes continuously at every microsecond.
 
 ---
 
 ### 3. Step-by-Step Calculus Derivation for Our 2-DoF Arm
 
+Let us derive every single entry of the Jacobian matrix for our 2-DoF planar manipulator from first principles.
+
+#### Coordinate Frame & Angle Conventions
+* Base shoulder pivot located at $(x_0, z_0) = (0, 1.0)$.
+* Link lengths: $l_1 = 0.4\\text{ m}$, $l_2 = 0.3\\text{ m}$.
+* $q_1$: Shoulder angle relative to downward vertical ($+Z$ points upward in world frame).
+* $q_2$: Elbow angle relative to the extension of the upper arm.
+
 Recall our Forward Kinematics equations:
-$$x = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$
-$$z = -l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2)$$
+$$x(q_1, q_2) = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$
+$$z(q_1, q_2) = z_0 - l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2)$$
 
 The Jacobian is a $2 \\times 2$ matrix:
-$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} \\frac{\\partial x}{\\partial q_1} & \\frac{\\partial x}{\\partial q_2} \\\\[6pt] \\frac{\\partial z}{\\partial q_1} & \\frac{\\partial z}{\\partial q_2} \\end{bmatrix}$$
+$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} \\frac{\\partial x}{\\partial q_1} & \\frac{\\partial x}{\\partial q_2} \\\\ \\frac{\\partial z}{\\partial q_1} & \\frac{\\partial z}{\\partial q_2} \\end{bmatrix}$$
 
-#### Differentiating $x$ with respect to $q_1$ and $q_2$:
-* With respect to $q_1$:
-  $$\\frac{\\partial x}{\\partial q_1} = l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2)$$
-* With respect to $q_2$:
-  $$\\frac{\\partial x}{\\partial q_2} = l_2 \\cos(q_1 + q_2)$$
+#### Derivation of the First Row (Horizontal Velocity $\\dot{x}$):
+1. Differentiating $x$ with respect to $q_1$:
+   $$\\frac{\\partial x}{\\partial q_1} = \\frac{\\partial}{\\partial q_1}\\left[l_1 \\sin(q_1)\\right] + \\frac{\\partial}{\\partial q_1}\\left[l_2 \\sin(q_1 + q_2)\\right]$$
+   Using the derivative of $\\sin(u)$ and the chain rule $\\frac{\\partial(q_1 + q_2)}{\\partial q_1} = 1$:
+   $$\\frac{\\partial x}{\\partial q_1} = l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2)$$
 
-#### Differentiating $z$ with respect to $q_1$ and $q_2$:
-* With respect to $q_1$ (recalling $\\frac{d}{du}(-\\cos u) = \\sin u$):
-  $$\\frac{\\partial z}{\\partial q_1} = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$
-* With respect to $q_2$:
-  $$\\frac{\\partial z}{\\partial q_2} = l_2 \\sin(q_1 + q_2)$$
+2. Differentiating $x$ with respect to $q_2$:
+   $$\\frac{\\partial x}{\\partial q_2} = \\frac{\\partial}{\\partial q_2}\\left[l_1 \\sin(q_1)\\right] + \\frac{\\partial}{\\partial q_2}\\left[l_2 \\sin(q_1 + q_2)\\right]$$
+   Since $l_1 \\sin(q_1)$ is constant with respect to $q_2$, its derivative is $0$:
+   $$\\frac{\\partial x}{\\partial q_2} = 0 + l_2 \\cos(q_1 + q_2) \\cdot 1 = l_2 \\cos(q_1 + q_2)$$
+
+#### Derivation of the Second Row (Vertical Velocity $\\dot{z}$):
+1. Differentiating $z$ with respect to $q_1$:
+   $$\\frac{\\partial z}{\\partial q_1} = \\frac{\\partial}{\\partial q_1}[z_0] - l_1 \\frac{\\partial}{\\partial q_1}[\\cos(q_1)] - l_2 \\frac{\\partial}{\\partial q_1}[\\cos(q_1 + q_2)]$$
+   Recalling that $\\frac{d}{du}[-\\cos(u)] = \\sin(u)$:
+   $$\\frac{\\partial z}{\\partial q_1} = 0 - l_1(-\\sin(q_1)) - l_2(-\\sin(q_1 + q_2)) = l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)$$
+
+2. Differentiating $z$ with respect to $q_2$:
+   $$\\frac{\\partial z}{\\partial q_2} = 0 - 0 - l_2(-\\sin(q_1 + q_2)) = l_2 \\sin(q_1 + q_2)$$
 
 #### The Complete 2-DoF Analytical Jacobian:
-$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2) & l_2 \\cos(q_1 + q_2) \\\\[6pt] l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) & l_2 \\sin(q_1 + q_2) \\end{bmatrix}$$
+$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2) & l_2 \\cos(q_1 + q_2) \\\\ l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) & l_2 \\sin(q_1 + q_2) \\end{bmatrix}$$
 
 ---
 
-### 4. The Physical Meaning of the Columns
+### 4. Physical Meaning: Column-Vector Decomposition
 
-Look at the two columns of $J$:
-$$\\mathbf{J} = \\begin{bmatrix} \\mathbf{J}_1 & \\mathbf{J}_2 \\end{bmatrix}$$
+To develop true mechanical intuition, write $\\mathbf{J}(\\mathbf{q})$ as a set of column vectors:
+$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} \\mathbf{J}_1(\\mathbf{q}) & \\mathbf{J}_2(\\mathbf{q}) \\end{bmatrix}$$
 
-* **Column 1 ($\\mathbf{J}_1$)**: The Cartesian velocity of the fingertip if **only Joint 1 rotates at $1\\text{ rad/s}$** (with Joint 2 locked).
-* **Column 2 ($\\mathbf{J}_2$)**: The Cartesian velocity of the fingertip if **only Joint 2 rotates at $1\\text{ rad/s}$** (with Joint 1 locked).
+Where:
+$$\\mathbf{J}_1(\\mathbf{q}) = \\begin{bmatrix} l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2) \\\\ l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) \\end{bmatrix}, \\quad \\mathbf{J}_2(\\mathbf{q}) = \\begin{bmatrix} l_2 \\cos(q_1 + q_2) \\\\ l_2 \\sin(q_1 + q_2) \\end{bmatrix}$$
 
-Because velocities superimpose linearly:
-$$\\mathbf{v} = \\mathbf{J}_1 \\dot{q}_1 + \\mathbf{J}_2 \\dot{q}_2$$
+By the definition of matrix-vector multiplication:
+$$\\mathbf{v} = \\begin{bmatrix} \\dot{x} \\\\ \\dot{z} \\end{bmatrix} = \\mathbf{J}_1(\\mathbf{q}) \\dot{q}_1 + \\mathbf{J}_2(\\mathbf{q}) \\dot{q}_2$$
 
-In our next mission, we will invert this matrix to command Cartesian velocities directly!"""
+#### Physical Meaning of Column 1 ($\\mathbf{J}_1$):
+* Suppose Joint 2 is locked ($\\dot{q}_2 = 0$) and Joint 1 rotates at unit speed $\\dot{q}_1 = 1\\text{ rad/s}$.
+* Then $\\mathbf{v} = \\mathbf{J}_1(\\mathbf{q})$.
+* Therefore, **Column 1 is the instantaneous linear velocity vector of the fingertip caused exclusively by the rotation of the shoulder!**
+* Geometrically, $\\mathbf{J}_1$ is strictly perpendicular to the vector connecting the shoulder pivot to the fingertip.
+
+#### Physical Meaning of Column 2 ($\\mathbf{J}_2$):
+* Suppose Joint 1 is locked ($\\dot{q}_1 = 0$) and Joint 2 rotates at unit speed $\\dot{q}_2 = 1\\text{ rad/s}$.
+* Then $\\mathbf{v} = \\mathbf{J}_2(\\mathbf{q})$.
+* Therefore, **Column 2 is the instantaneous linear velocity vector of the fingertip caused exclusively by the rotation of the elbow!**
+* Geometrically, $\\mathbf{J}_2$ is strictly perpendicular to the forearm link, and its magnitude is:
+  $$\\|\\mathbf{J}_2\\| = \\sqrt{\\left[l_2 \\cos(q_1 + q_2)\\right]^2 + \\left[l_2 \\sin(q_1 + q_2)\\right]^2} = l_2 \\sqrt{\\cos^2(\\dots) + \\sin^2(\\dots)} = l_2$$
+  This directly matches basic circular physics: $v = \\omega r = (1\\text{ rad/s}) \\times l_2 = l_2$!
+
+---
+
+### 5. The Geometric Cross-Product Formulation (University-Grade Robotics)
+
+In 3D spatial robotics, computing the Jacobian by symbolically differentiating trigonometric expressions is tedious and error-prone. Standard university textbooks (Lynch & Park, Craig, Siciliano) formulate the Jacobian using **rigid-body kinematics and vector cross-products**.
+
+For any revolute joint $i$ with:
+* Unit vector along the joint rotation axis: $\\hat{\\mathbf{z}}_{i-1}$
+* Position vector of the joint pivot: $\\mathbf{p}_{i-1}$
+* Position vector of the end-effector: $\\mathbf{p}_{\\text{tip}}$
+
+The linear velocity contribution $\\mathbf{J}_{v, i}$ and angular velocity contribution $\\mathbf{J}_{\\omega, i}$ are:
+$$\\mathbf{J}_{v, i} = \\hat{\\mathbf{z}}_{i-1} \\times (\\mathbf{p}_{\\text{tip}} - \\mathbf{p}_{i-1})$$
+$$\\mathbf{J}_{\\omega, i} = \\hat{\\mathbf{z}}_{i-1}$$
+
+This cross-product formula—$(\\text{axis of rotation}) \\times (\\text{lever arm to end-effector})$—is the exact mathematical foundation used by MuJoCo's C-engine (`mj_jacSite`)!
+
+---
+
+### 6. Concrete Numerical Walkthrough: Hand Calculation
+
+Let us compute an explicit numerical example to build total confidence before writing code.
+
+#### Given Parameters:
+* Link lengths: $l_1 = 0.4\\text{ m}$, $l_2 = 0.3\\text{ m}$.
+* Configuration: $q_1 = 30^\\circ = \\frac{\\pi}{6}\\text{ rad} \\approx 0.5236\\text{ rad}$.
+* Configuration: $q_2 = 45^\\circ = \\frac{\\pi}{4}\\text{ rad} \\approx 0.7854\\text{ rad}$.
+* Cumulative angle: $q_1 + q_2 = 75^\\circ = \\frac{5\\pi}{12}\\text{ rad} \\approx 1.3090\\text{ rad}$.
+
+#### Trigonometric Values:
+$$\\cos(30^\\circ) = \\frac{\\sqrt{3}}{2} \\approx 0.8660, \\quad \\sin(30^\\circ) = 0.5000$$
+$$\\cos(75^\\circ) = \\frac{\\sqrt{6} - \\sqrt{2}}{4} \\approx 0.2588, \\quad \\sin(75^\\circ) = \\frac{\\sqrt{6} + \\sqrt{2}}{4} \\approx 0.9659$$
+
+#### Evaluating Matrix Entries:
+* $J_{11} = 0.4(0.8660) + 0.3(0.2588) = 0.3464 + 0.0776 = 0.4240\\text{ m}$
+* $J_{12} = 0.3(0.2588) = 0.0776\\text{ m}$
+* $J_{21} = 0.4(0.5000) + 0.3(0.9659) = 0.2000 + 0.2898 = 0.4898\\text{ m}$
+* $J_{22} = 0.3(0.9659) = 0.2898\\text{ m}$
+
+$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} 0.4240 & 0.0776 \\\\ 0.4898 & 0.2898 \\end{bmatrix}$$
+
+#### Applying Joint Velocities:
+Suppose the motors are spinning at:
+$$\\dot{\\mathbf{q}} = \\begin{bmatrix} \\dot{q}_1 \\\\ \\dot{q}_2 \\end{bmatrix} = \\begin{bmatrix} 1.0\\text{ rad/s} \\\\ -2.0\\text{ rad/s} \\end{bmatrix}$$
+
+The resulting Cartesian velocity of the fingertip is:
+$$\\mathbf{v} = \\mathbf{J}(\\mathbf{q}) \\dot{\\mathbf{q}} = \\begin{bmatrix} 0.4240 & 0.0776 \\\\ 0.4898 & 0.2898 \\end{bmatrix} \\begin{bmatrix} 1.0 \\\\ -2.0 \\end{bmatrix}$$
+
+$$v_x = (0.4240)(1.0) + (0.0776)(-2.0) = 0.4240 - 0.1552 = \\mathbf{+0.2688\\text{ m/s}}$$
+$$v_z = (0.4898)(1.0) + (0.2898)(-2.0) = 0.4898 - 0.5796 = \\mathbf{-0.0898\\text{ m/s}}$$
+
+**Interpretation**: The fingertip is simultaneously moving forward along $+X$ at $0.269\\text{ m/s}$ and downward along $-Z$ at $0.090\\text{ m/s}$.
+
+---
+
+### 7. MuJoCo Implementation: `mj_jacSite`
+
+In MuJoCo, you do not need to derive Jacobians by hand for complex robots. MuJoCo provides the high-performance C function:
+
+```python
+jacp = np.zeros((3, model.nv))  # Translational Jacobian (3 x nv)
+jacr = np.zeros((3, model.nv))  # Rotational Jacobian (3 x nv)
+mujoco.mj_jacSite(model, data, jacp, jacr, site_id)
+```
+
+* `jacp[0, :]`: Partial derivatives for $X$ velocity with respect to all degrees of freedom.
+* `jacp[2, :]`: Partial derivatives for $Z$ velocity with respect to all degrees of freedom.
+
+In our upcoming coding lab, you will calculate your analytical Jacobian function in Python and verify that it matches MuJoCo's C engine to within $10^{-9}$ numerical tolerance!"""
     },
     {
         "id": "3.2",
         "phase": "Phase 3: The Shape",
         "title": "Differential Inverse Kinematics & Matrix Inversion",
-        "status": "pending",
+        "status": "in_progress",
         "xp": 220,
-        "g1_connection": "In run_sim.py, when the Unitree G1 humanoid tracks a hand velocity trajectory, it inverts the Jacobian at every 1 ms timestep to compute target joint velocities: dq = J^-1 * v.",
+        "g1_connection": "In run_sim.py, when the Unitree G1 humanoid tracks a 3D hand trajectory, it inverts the Jacobian at every 1 ms simulation step to calculate required joint motor velocities: dq = J^-1 * v. Understanding when and why J^-1 fails is the key to preventing violent motor shudder near singularities.",
         "quiz": {
-            "question": "What is the determinant of our 2-DoF arm's Jacobian, and when does it equal zero?",
+            "question": "Why does the determinant of the 2-DoF planar arm's Jacobian det(J) depend ONLY on the elbow angle q2, completely independent of the shoulder angle q1?",
             "options": [
-                "det(J) = l1*l2*cos(q2), zero when q2 = 90 deg",
-                "det(J) = l1*l2*sin(q2), zero when q2 = 0 deg or 180 deg",
-                "det(J) = l1 + l2, never zero",
-                "det(J) = 1"
+                "Because the shoulder motor is fixed to the world base, so rotating the entire arm as a rigid unit does not change its internal shape or stretching capacity",
+                "Because MuJoCo ignores the first joint during dynamics integration",
+                "Because the determinant of any matrix is always independent of the first variable",
+                "Because Link 1 has no mass"
             ],
-            "correct": 1,
-            "explanation": "Evaluating det(J) gives l1*l2*sin(q2). When q2 = 0 or 180 (the boundary singularities), sin(q2) = 0 and the matrix cannot be inverted."
+            "correct": 0,
+            "explanation": "Rotating the shoulder angle q1 simply rotates the entire arm as a rigid structure around the base without altering its internal posture, reachability, or distance between links. Only bending the elbow (q2) changes the arm's geometry, reachability, and proximity to singularities!"
         },
-        "content": """### 1. Inverting the Velocity Mapping
+        "content": """### 1. From Forward Velocity to Inverse Velocity Control
 
-We know that:
-$$\\mathbf{v} = \\mathbf{J}(\\mathbf{q}) \\cdot \\dot{\\mathbf{q}}$$
+In Lesson 3.1, we mastered **Forward Velocity Kinematics**:
+$$\\mathbf{v} = \\mathbf{J}(\\mathbf{q}) \\dot{\\mathbf{q}}$$
 
-To solve **Inverse Kinematics at the velocity level**:
-Given a desired Cartesian velocity $\\mathbf{v} = [v_x, v_z]^T$, what joint velocities $\\dot{\\mathbf{q}} = [\\dot{q}_1, \\dot{q}_2]^T$ must we command?
+Given the joint motor speeds $\\dot{\\mathbf{q}}$, multiplying by $\\mathbf{J}(\\mathbf{q})$ tells us how fast the hand moves in Cartesian space $\\mathbf{v}$.
 
-By inverting the Jacobian matrix:
-$$\\dot{\\mathbf{q}} = \\mathbf{J}(\\mathbf{q})^{-1} \\cdot \\mathbf{v}$$
+However, in autonomous robotics, our problem is almost always the **exact reverse**:
+1. A path planner commands: *\"Move the robot hand forward at $v_x = 0.2\\text{ m/s}$ and upward at $v_z = 0.05\\text{ m/s}$.\"*
+2. We know the desired Cartesian velocity $\\mathbf{v}^* = [v_x^*, v_z^*]^T$.
+3. We must solve for the required joint motor velocities $\\dot{\\mathbf{q}}^* = [\\dot{q}_1^*, \\dot{q}_2^*]^T$.
 
----
-
-### 2. Analytical Inverse of a 2x2 Matrix
-
-For any $2 \\times 2$ matrix:
-$$A = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix} \\implies A^{-1} = \\frac{1}{\\det(A)} \\begin{bmatrix} d & -b \\\\ -c & a \\end{bmatrix}$$
-where $\\det(A) = ad - bc$.
-
-#### Computing the Determinant of our 2-DoF Jacobian:
-$$\\det(\\mathbf{J}) = \\left[l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_2 \\sin(q_1 + q_2)\\right] - \\left[l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)\\right]$$
-
-Expanding the terms:
-$$\\det(\\mathbf{J}) = l_1 l_2 \\left[\\cos(q_1) \\sin(q_1 + q_2) - \\sin(q_1) \\cos(q_1 + q_2)\\right]$$
-
-Applying the trigonometric angle subtraction identity $\\sin(A - B) = \\sin(A)\\cos(B) - \\cos(A)\\sin(B)$:
-$$\\det(\\mathbf{J}) = l_1 l_2 \\sin((q_1 + q_2) - q_1) = \\mathbf{l_1 l_2 \\sin(q_2)}$$
-
-Look at how elegant this result is:
-**The determinant depends ONLY on the elbow angle $q_2$!**
+This is called **Differential Inverse Kinematics (Differential IK)**:
+$$\\mathbf{J}(\\mathbf{q}) \\dot{\\mathbf{q}}^* = \\mathbf{v}^* \\implies \\mathbf{\\dot{q}^* = J(q)^{-1} v^*}$$
 
 ---
 
-### 3. The Mathematical Proof of Singularities
+### 2. Linear Algebra Review: Analytical Inversion of a 2x2 Matrix
 
-When is $\\det(\\mathbf{J}) = 0$?
+For any general $2 \\times 2$ matrix:
+$$\\mathbf{A} = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$
+
+The matrix inverse $\\mathbf{A}^{-1}$ exists if and only if the **determinant** $\\det(\\mathbf{A}) \\ne 0$, and is given by:
+$$\\mathbf{A}^{-1} = \\frac{1}{\\det(\\mathbf{A})} \\text{adj}(\\mathbf{A}) = \\frac{1}{ad - bc} \\begin{bmatrix} d & -b \\\\ -c & a \\end{bmatrix}$$
+
+#### What Does the Determinant Mean Geometrically?
+* The determinant $\\det(\\mathbf{A})$ measures the **area scaling factor** of the linear transformation.
+* If you take a unit square in joint-velocity space ($[0, 1] \\times [0, 1]$), multiplying it by $\\mathbf{J}(\\mathbf{q})$ maps it into a parallelogram in Cartesian velocity space. The area of that parallelogram is exactly $|\\det(\\mathbf{J})|$!
+* If $\\det(\\mathbf{J}) = 0$, the parallelogram has **zero area**—the 2D velocity space has collapsed into a 1D line! Inversion is impossible because you cannot divide by zero.
+
+---
+
+### 3. Exhaustive Step-by-Step Derivation of $\\det(\\mathbf{J})$ for Our 2-DoF Arm
+
+Recall our analytical Jacobian matrix for the 2-DoF planar arm (accounting for the $+Y$ joint rotation axis):
+$$\\mathbf{J}(\\mathbf{q}) = \\begin{bmatrix} J_{11} & J_{12} \\\\ J_{21} & J_{22} \\end{bmatrix} = \\begin{bmatrix} -l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2) & -l_2 \\cos(q_1 + q_2) \\\\ l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) & l_2 \\sin(q_1 + q_2) \\end{bmatrix}$$
+
+Let us compute $\\det(\\mathbf{J}) = J_{11} J_{22} - J_{12} J_{21}$ with zero skipped steps:
+
+#### Step 3.1: Multiplying the Diagonal Terms ($J_{11} \\cdot J_{22}$)
+$$J_{11} J_{22} = \\left[-l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_2 \\sin(q_1 + q_2)\\right]$$
+$$= -l_1 l_2 \\cos(q_1) \\sin(q_1 + q_2) - l_2^2 \\cos(q_1 + q_2) \\sin(q_1 + q_2)$$
+
+#### Step 3.2: Multiplying the Off-Diagonal Terms ($J_{12} \\cdot J_{21}$)
+$$J_{12} J_{21} = \\left[-l_2 \\cos(q_1 + q_2)\\right] \\cdot \\left[l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2)\\right]$$
+$$= -l_1 l_2 \\sin(q_1) \\cos(q_1 + q_2) - l_2^2 \\cos(q_1 + q_2) \\sin(q_1 + q_2)$$
+
+#### Step 3.3: Subtracting the Two Products ($J_{11} J_{22} - J_{12} J_{21}$)
+$$\\det(\\mathbf{J}) = \\left[-l_1 l_2 \\cos(q_1) \\sin(q_1 + q_2) - l_2^2 \\cos(q_1 + q_2) \\sin(q_1 + q_2)\\right] - \\left[-l_1 l_2 \\sin(q_1) \\cos(q_1 + q_2) - l_2^2 \\cos(q_1 + q_2) \\sin(q_1 + q_2)\\right]$$
+
+Notice that the $-l_2^2 \\cos(q_1 + q_2) \\sin(q_1 + q_2)$ terms **cancel out completely**:
+$$\\det(\\mathbf{J}) = -l_1 l_2 \\cos(q_1) \\sin(q_1 + q_2) + l_1 l_2 \\sin(q_1) \\cos(q_1 + q_2)$$
+$$= -l_1 l_2 \\left[\\cos(q_1) \\sin(q_1 + q_2) - \\sin(q_1) \\cos(q_1 + q_2)\\right]$$
+
+#### Step 3.4: Applying Trigonometric Angle-Difference Identity
+Recall the trigonometric identity:
+$$\\sin(A - B) = \\sin(A) \\cos(B) - \\cos(A) \\sin(B)$$
+
+Let $A = q_1 + q_2$ and $B = q_1$:
+$$\\sin((q_1 + q_2) - q_1) = \\sin(q_1 + q_2) \\cos(q_1) - \\cos(q_1 + q_2) \\sin(q_1)$$
+
+Substitute this into our determinant expression:
+$$\\mathbf{\\det(J) = -l_1 l_2 \\sin(q_2)}$$
+
+> **The Grand Insight**:  
+> The determinant depends **exclusively on the elbow angle $q_2$**!  
+> The shoulder angle $q_1$ does not appear anywhere in $\\det(\\mathbf{J})$. Why? Because rotating $q_1$ simply revolves the entire arm as a rigid structure around the shoulder without changing its internal shape, stretch, or dexterity. Only the elbow angle $q_2$ alters the arm's geometry!
+
+---
+
+### 4. Constructing the Complete Analytical Inverse Matrix $\\mathbf{J}^{-1}$
+
+Using the $2 \\times 2$ inversion formula:
+$$\\mathbf{J}^{-1} = \\frac{1}{\\det(\\mathbf{J})} \\begin{bmatrix} J_{22} & -J_{12} \\\\ -J_{21} & J_{11} \\end{bmatrix}$$
+
+Substituting our exact terms:
+$$\\mathbf{J}^{-1} = \\frac{1}{-l_1 l_2 \\sin(q_2)} \\begin{bmatrix} l_2 \\sin(q_1 + q_2) & l_2 \\cos(q_1 + q_2) \\\\ -l_1 \\sin(q_1) - l_2 \\sin(q_1 + q_2) & -l_1 \\cos(q_1) - l_2 \\cos(q_1 + q_2) \\end{bmatrix}$$
+
+Distributing the negative sign from the denominator into the matrix:
+$$\\mathbf{J}^{-1} = \\frac{1}{l_1 l_2 \\sin(q_2)} \\begin{bmatrix} -l_2 \\sin(q_1 + q_2) & -l_2 \\cos(q_1 + q_2) \\\\ l_1 \\sin(q_1) + l_2 \\sin(q_1 + q_2) & l_1 \\cos(q_1) + l_2 \\cos(q_1 + q_2) \\end{bmatrix}$$
+
+---
+
+### 5. The Mathematical & Physical Proof of Singularities
+
+Look at the denominator of $\\mathbf{J}^{-1}$:
+$$\\text{Denominator} = l_1 l_2 \\sin(q_2)$$
+
+When does this denominator equal zero?
 $$\\det(\\mathbf{J}) = 0 \\iff \\sin(q_2) = 0 \\iff \\mathbf{q_2 = 0^\\circ \\quad \\text{or} \\quad q_2 = 180^\\circ}$$
 
-* At $q_2 = 0^\\circ$ (arm fully outstretched): $\\det(\\mathbf{J}) = 0$.
-* At $q_2 = 180^\\circ$ (arm folded flat): $\\det(\\mathbf{J}) = 0$.
+#### Singularity Case A: Maximum Stretch ($q_2 = 0^\\circ$)
+* The upper arm and forearm align into a single straight line ($r = l_1 + l_2 = 0.7\\text{ m}$).
+* The columns of $\\mathbf{J}$ become parallel.
+* If you command a radial velocity pointing outward ($v_{\\text{radial}} > 0$), the required joint speed is:
+  $$\\dot{\\mathbf{q}} = \\frac{1}{0} \\cdot \\mathbf{v} \\longrightarrow \\infty$$
+* **Physical consequence**: The motor tries to spin infinitely fast, causing severe joint shudder, current saturation, or actuator shutdown!
 
-Because $\\det(\\mathbf{J}) = 0$, **the Jacobian cannot be inverted**! 
-Dividing by zero causes required joint velocities to explode toward infinity: $\\dot{q} \\to \\infty$.
+#### Singularity Case B: Full Retraction ($q_2 = 180^\\circ$)
+* The forearm folds completely backward onto the upper arm ($r = |l_1 - l_2| = 0.1\\text{ m}$).
+* The arm cannot move radially inward toward the shoulder.
 
-This algebraically proves the two physical singularities we discovered in Phase 2!"""
+---
+
+### 6. The Manipulability Ellipsoid (Yoshikawa's Metric)
+
+How can a robot tell whether it is *close* to a singularity before it actually hits one?
+
+In 1985, Tsuneo Yoshikawa introduced the **Manipulability Measure** $w(\\mathbf{q})$:
+$$w(\\mathbf{q}) = \\sqrt{\\det(\\mathbf{J} \\mathbf{J}^T)}$$
+
+For a square matrix ($m = n = 2$):
+$$w(\\mathbf{q}) = |\\det(\\mathbf{J})| = l_1 l_2 |\\sin(q_2)|$$
+
+#### The Velocity Ellipsoid:
+If the robot's motors are limited to a unit ball of joint velocities $(\\dot{q}_1^2 + \\dot{q}_2^2 \\le 1)$, the reachable Cartesian velocities form an **ellipse** in the $(v_x, v_z)$ plane:
+$$\\mathbf{v}^T (\\mathbf{J} \\mathbf{J}^T)^{-1} \\mathbf{v} \\le 1$$
+
+* **At $q_2 = 90^\\circ$ ($w = 0.12$, Maximum Dexterity)**:
+  The ellipsoid is wide, fat, and isotropic. The robot can accelerate equally well in all directions.
+* **Near a Singularity (e.g. $q_2 = 2^\\circ$, $w = 0.004$)**:
+  The ellipsoid flattens into an extremely thin needle. Moving along the major axis requires almost zero motor effort, but moving along the minor axis (radial) requires massive, near-infinite motor speeds!
+
+---
+
+### 7. Concrete Numerical Walkthrough: Hand Calculation
+
+Let us walk through an explicit numerical inversion and velocity command.
+
+#### Given Parameters:
+* Link lengths: $l_1 = 0.4\\text{ m}$, $l_2 = 0.3\\text{ m}$.
+* Configuration: $q_1 = 30^\\circ = \\frac{\\pi}{6}\\text{ rad}$, $q_2 = 45^\\circ = \\frac{\\pi}{4}\\text{ rad}$.
+* Cumulative angle: $q_1 + q_2 = 75^\\circ = \\frac{5\\pi}{12}\\text{ rad}$.
+
+#### Step 1: Compute the Determinant
+$$\\det(\\mathbf{J}) = -l_1 l_2 \\sin(q_2) = -(0.4)(0.3) \\sin(45^\\circ) = -0.12 \\times 0.7071 = \\mathbf{-0.08485\\text{ m}^2}$$
+
+Because $\\det(\\mathbf{J}) \\ne 0$, the matrix is non-singular and invertible!
+
+#### Step 2: Compute $\\mathbf{J}^{-1}$
+Recall our numerical $\\mathbf{J}$ at this configuration:
+$$\\mathbf{J} = \\begin{bmatrix} -0.4240 & -0.0776 \\\\ 0.4898 & 0.2898 \\end{bmatrix}$$
+
+Using the inverse formula:
+$$\\mathbf{J}^{-1} = \\frac{1}{-0.08485} \\begin{bmatrix} 0.2898 & 0.0776 \\\\ -0.4898 & -0.4240 \\end{bmatrix} = \\begin{bmatrix} -3.4154 & -0.9146 \\\\ 5.7725 & 4.9971 \\end{bmatrix}$$
+
+#### Step 3: Command a Cartesian Velocity
+Suppose we want the fingertip to move **purely horizontally forward** at $v_x^* = 0.1\\text{ m/s}$, with zero vertical drift ($v_z^* = 0.0\\text{ m/s}$):
+$$\\mathbf{v}^* = \\begin{bmatrix} 0.1 \\\\ 0.0 \\end{bmatrix}\\text{ m/s}$$
+
+What joint velocities must the motors spin at?
+$$\\dot{\\mathbf{q}}^* = \\mathbf{J}^{-1} \\mathbf{v}^* = \\begin{bmatrix} -3.4154 & -0.9146 \\\\ 5.7725 & 4.9971 \\end{bmatrix} \\begin{bmatrix} 0.1 \\\\ 0.0 \\end{bmatrix}$$
+
+$$\\dot{q}_1^* = (-3.4154)(0.1) + (-0.9146)(0.0) = \\mathbf{-0.3415\\text{ rad/s}}$$
+$$\\dot{q}_2^* = (5.7725)(0.1) + (4.9971)(0.0) = \\mathbf{+0.5773\\text{ rad/s}}$$
+
+**Verification**:
+Multiplying $\\mathbf{J} \\dot{\\mathbf{q}}^*$:
+$$v_x = (-0.4240)(-0.3415) + (-0.0776)(0.5773) = 0.1448 - 0.0448 = \\mathbf{0.1000\\text{ m/s}} \\quad \\checkmark$$
+$$v_z = (0.4898)(-0.3415) + (0.2898)(0.5773) = -0.1673 + 0.1673 = \\mathbf{0.0000\\text{ m/s}} \\quad \\checkmark$$
+
+The fingertip moves in a laser-straight horizontal line!"""
     },
     {
         "id": "3.3",
@@ -740,7 +977,7 @@ The spatial Jacobian has shape **$6 \\times n$**, where $n$ is the number of arm
 For the Unitree G1 arm ($n = 7$ joints):
 $$\\mathbf{J} \\in \\mathbb{R}^{6 \\times 7}$$
 
-$$\\begin{bmatrix} v_x \\\\ v_y \\\\ v_z \\\\[4pt] \\omega_x \\\\ \\omega_y \\\\ \\omega_z \\end{bmatrix} = \\mathbf{J}_{6 \\times 7} \\cdot \\begin{bmatrix} \\dot{q}_1 \\\\ \\dot{q}_2 \\\\ \\vdots \\\\ \\dot{q}_7 \\end{bmatrix}$$
+$$\\begin{bmatrix} v_x \\\\ v_y \\\\ v_z \\\\ \\omega_x \\\\ \\omega_y \\\\ \\omega_z \\end{bmatrix} = \\mathbf{J}_{6 \\times 7} \\cdot \\begin{bmatrix} \\dot{q}_1 \\\\ \\dot{q}_2 \\\\ \\vdots \\\\ \\dot{q}_7 \\end{bmatrix}$$
 
 ---
 

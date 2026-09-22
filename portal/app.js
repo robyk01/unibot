@@ -43,7 +43,22 @@ async function initApp() {
     selectLesson(currentLessonId, false);
     updateGamificationHUD();
     checkDiskSync();
-    showOverviewView();
+    
+    // Restore user's active view, defaulting to lessons view
+    const savedView = localStorage.getItem("robotics_active_view") || "lessons";
+    if (savedView === "overview") {
+      showOverviewView();
+    } else if (savedView === "daily") {
+      showDailyView();
+    } else if (savedView === "practice") {
+      showPracticeView();
+    } else if (savedView === "scratchpad") {
+      showScratchpadView();
+    } else if (savedView === "glossary") {
+      showGlossaryView();
+    } else {
+      showLessonsView();
+    }
   } catch (err) {
     console.error("Critical error in initApp:", err);
   }
@@ -554,6 +569,37 @@ function renderPracticeChallenges() {
   });
 }
 
+// Render Markdown Content while protecting KaTeX math blocks from Marked's underscore/italic parser
+function renderMarkdownWithMath(content) {
+  if (!content) return "";
+  if (typeof marked === "undefined" || !marked.parse) return content;
+
+  const mathBlocks = [];
+
+  // 1. Protect display math ($$...$$)
+  let text = content.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+    mathBlocks.push(match);
+    return `@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
+  });
+
+  // 2. Protect inline math ($...$)
+  text = text.replace(/(^|[^\\])\$([^\$\n]+?)\$/g, (match, prefix, inner) => {
+    mathBlocks.push(`$${inner}$`);
+    return `${prefix}@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
+  });
+
+  // 3. Parse markdown safely
+  let html = marked.parse(text);
+
+  // 4. Restore math blocks
+  html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, idx) => {
+    const i = parseInt(idx, 10);
+    return mathBlocks[i] !== undefined ? mathBlocks[i] : match;
+  });
+
+  return html;
+}
+
 // Select and Display a Lesson
 function selectLesson(id, shouldSwitchView = true) {
   currentLessonId = id;
@@ -597,11 +643,9 @@ function selectLesson(id, shouldSwitchView = true) {
     }
   }
 
-  // Render Markdown Content & KaTeX
+  // Render Markdown Content & KaTeX (protecting LaTeX math from marked's underscore parser)
   if (lessonContent) {
-    lessonContent.innerHTML = (typeof marked !== "undefined" && marked.parse)
-      ? marked.parse(lesson.content)
-      : lesson.content;
+    lessonContent.innerHTML = renderMarkdownWithMath(lesson.content);
 
     if (typeof renderMathInElement !== "undefined") {
       try {
@@ -751,6 +795,7 @@ function deactivateAllTabs() {
 
 function showOverviewView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "overview");
   const view = document.getElementById("overviewView");
   const contentPane = document.getElementById("contentPane");
   if (view) view.classList.add("active");
@@ -762,14 +807,18 @@ function showOverviewView() {
 
 function showLessonsView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "lessons");
   const btn = document.getElementById("btnViewLessons");
   const view = document.getElementById("lessonView");
   if (btn) btn.classList.add("active");
   if (view) view.classList.add("active");
+  // Ensure the current lesson is rendered
+  selectLesson(currentLessonId, false);
 }
 
 function showDailyView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "daily");
   const btn = document.getElementById("btnViewDaily");
   const view = document.getElementById("dailyView");
   if (btn) btn.classList.add("active");
@@ -778,6 +827,7 @@ function showDailyView() {
 
 function showPracticeView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "practice");
   const btn = document.getElementById("btnViewPractice");
   const view = document.getElementById("practiceView");
   if (btn) btn.classList.add("active");
@@ -786,6 +836,7 @@ function showPracticeView() {
 
 function showScratchpadView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "scratchpad");
   const btn = document.getElementById("btnViewScratchpad");
   const view = document.getElementById("scratchpadView");
   if (btn) btn.classList.add("active");
@@ -794,6 +845,7 @@ function showScratchpadView() {
 
 function showGlossaryView() {
   deactivateAllTabs();
+  localStorage.setItem("robotics_active_view", "glossary");
   const btn = document.getElementById("btnViewGlossary");
   const view = document.getElementById("glossaryView");
   if (btn) btn.classList.add("active");
@@ -839,12 +891,12 @@ function setupEventListeners() {
     });
   }
 
-  // Click outside handlers: Close sidebar and streak dropdown
+  // Click outside handlers: Close sidebar (mobile only) and streak dropdown
   document.addEventListener("click", (e) => {
-    // 1. Click outside sidebar closes it
+    // 1. On small screens (<=768px), clicking outside sidebar closes it
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("btnToggleSidebar");
-    if (sidebar && !isSidebarCollapsed) {
+    if (window.innerWidth <= 768 && sidebar && !isSidebarCollapsed) {
       if (!sidebar.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
         isSidebarCollapsed = true;
         sidebar.classList.add("collapsed");
