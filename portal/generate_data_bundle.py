@@ -699,7 +699,7 @@ In our upcoming coding lab, you will calculate your analytical Jacobian function
         "id": "3.2",
         "phase": "Phase 3: The Shape",
         "title": "Differential Inverse Kinematics & Matrix Inversion",
-        "status": "in_progress",
+        "status": "completed",
         "xp": 220,
         "g1_connection": "In run_sim.py, when the Unitree G1 humanoid tracks a 3D hand trajectory, it inverts the Jacobian at every 1 ms simulation step to calculate required joint motor velocities: dq = J^-1 * v. Understanding when and why J^-1 fails is the key to preventing violent motor shudder near singularities.",
         "quiz": {
@@ -880,50 +880,239 @@ The fingertip moves in a laser-straight horizontal line!"""
         "id": "3.3",
         "phase": "Phase 3: The Shape",
         "title": "Damped Least Squares (DLS) & Singularity Robustness",
-        "status": "pending",
+        "status": "in_progress",
         "xp": 250,
-        "g1_connection": "In run_sim.py, the UniBot controller implements Damped Least Squares Jacobian Inverse Kinematics. This ensures the robot never experiences numerical explosions or joint shudder when limbs reach full extension.",
+        "g1_connection": "In run_sim.py, the Unitree G1 humanoid controller implements Damped Least Squares (DLS) Jacobian Inverse Kinematics. When the humanoid reaches for objects at the boundary of its 7-DoF workspace, DLS prevents numerical explosions and joint motor torque saturation, keeping the robot stable and upright.",
         "quiz": {
-            "question": "What is the primary benefit of Damped Least Squares (DLS) over pure matrix inversion near singularities?",
+            "question": "In Damped Least Squares, what is the maximum possible gain applied to any Cartesian velocity component as the singular value approaches zero (sigma -> 0)?",
             "options": [
-                "It makes the motors run faster",
-                "It bounds joint velocities, trading tiny tracking error for numerical stability and preventing infinite speeds",
-                "It eliminates gravity",
-                "It removes the need for sensors"
+                "It still approaches infinity (1 / 0)",
+                "It is strictly capped at 1 / (2 * lambda) when sigma = lambda, and smoothly rolls off to 0 as sigma -> 0",
+                "It becomes negative, causing the robot to reverse direction",
+                "It is always equal to 1.0 regardless of lambda"
             ],
             "correct": 1,
-            "explanation": "DLS adds a damping factor lambda^2 that regularizes the inversion, keeping joint velocities strictly bounded near singular configurations."
+            "explanation": "From SVD filter analysis, the DLS transfer function is f(sigma) = sigma / (sigma^2 + lambda^2). By calculus, the peak of this function occurs exactly at sigma = lambda, where f(lambda) = lambda / (2*lambda^2) = 1 / (2*lambda). Below that, it smoothly drops to zero, guaranteeing that joint speeds never exceed a finite bound!"
         },
-        "content": """### 1. The Problem with Pure Inversion Near Singularities
+        "content": """### 1. The Singularity Catastrophe in Production Robotics
 
-When a robot's hand approaches the workspace boundary ($r \\to l_1 + l_2$), $\\det(J) \\to 0$.
-Even if the desired Cartesian velocity is small ($v = 0.01\\text{ m/s}$), pure inversion commands:
-$$\\dot{q} = J^{-1} v = \\frac{1}{\\det(J)} \\cdot [\\dots] \\approx \\frac{1}{0.0001} \\times 0.01 = \\mathbf{100\\text{ rad/s (Violent Joint Shudder!)}}$$
+In Lesson 3.2, you witnessed first-hand what happens when a robot commands a Cartesian velocity near a singularity:
+$$\\dot{\\mathbf{q}} = \\mathbf{J}(\\mathbf{q})^{-1} \\mathbf{v}^* = \\frac{1}{\\det(\\mathbf{J})} \\text{adj}(\\mathbf{J}) \\mathbf{v}^*$$
 
-In real hardware, this blows motor fuses or triggers emergency torque shutoffs.
+As the elbow straightens ($q_2 \\to 0^\\circ$), $\\det(\\mathbf{J}) \\to 0$. Even a microscopic velocity request like $v_x^* = 0.05\\text{ m/s}$ commands joint rotation speeds of hundreds of radians per second:
+$$\\dot{\\mathbf{q}} \\approx \\frac{1}{0.0001} \\times 0.05 = \\mathbf{500\\text{ rad/s!}}$$
+
+#### Why Naive Workarounds Fail:
+1. **Hard Threshold Stop (`if abs(det) < eps: v = 0`)**:  
+   Freezes the arm abruptly whenever it approaches full stretch. The robot halts mid-trajectory with high inertial jerk, creating mechanical shock.
+2. **Velocity Clamping (`if speed > limit: speed = limit`)**:  
+   Clamping each joint speed independently distorts the ratio $\\dot{q}_1 / \\dot{q}_2$. The end-effector severely veers off its intended path in random, unpredictable directions.
+
+We need a mathematically principled technique that **trades a tiny amount of Cartesian tracking accuracy in the unfeasible direction to guarantee strictly bounded, smooth joint velocities**. That technique is **Damped Least Squares (DLS)**.
 
 ---
 
-### 2. The Levenberg-Marquardt / Damped Least Squares (DLS) Solution
+### 2. Optimization Formulation (The Levenberg-Marquardt Tradeoff)
 
-Instead of solving the exact equation $J \\dot{q} = v$, DLS solves an **optimization problem**:
-$$\\min_{\\dot{q}} \\; \\|J \\dot{q} - v\\|^2 + \\lambda^2 \\|\\dot{q}\\|^2$$
+Instead of forcing exact equality $\\mathbf{J} \\dot{\\mathbf{q}} = \\mathbf{v}^*$ (which is impossible at a singularity), we formulate Inverse Kinematics as an **unconstrained optimization problem**.
 
-* Term 1 ($\\|J \\dot{q} - v\\|^2$): Minimize Cartesian tracking error.
-* Term 2 ($\\lambda^2 \\|\\dot{q}\\|^2$): Penalize large joint velocities (damping).
+We define an objective cost function $\\mathcal{L}(\\dot{\\mathbf{q}})$ with two competing terms:
+$$\\min_{\\dot{\\mathbf{q}}} \\; \\mathcal{L}(\\dot{\\mathbf{q}}) = \\frac{1}{2} \\|\\mathbf{J}\\dot{\\mathbf{q}} - \\mathbf{v}^*\\|^2 + \\frac{1}{2} \\lambda^2 \\|\\dot{\\mathbf{q}}\\|^2$$
 
-The closed-form analytical solution is the **Damped Pseudoinverse**:
-$$\\mathbf{J^\\dagger = J^T (J J^T + \\lambda^2 I)^{-1}}$$
+* **Term 1 (Cartesian Tracking Error)**: $\\frac{1}{2} \\|\\mathbf{J}\\dot{\\mathbf{q}} - \\mathbf{v}^*\\|^2$  
+  Penalizes any discrepancy between actual tip velocity $\\mathbf{J}\\dot{\\mathbf{q}}$ and commanded velocity $\\mathbf{v}^*$.
+* **Term 2 (Joint Velocity Regularization)**: $\\frac{1}{2} \\lambda^2 \\|\\dot{\\mathbf{q}}\\|^2$  
+  Penalizes high motor speeds and energy consumption.
+* **$\\lambda \\ge 0$ (Damping Factor)**:  
+  A tuning parameter that acts as the exchange rate between tracking precision and motor safety.
+
+---
+
+### 3. Calculus Derivation of the Damped Pseudoinverse
+
+Let us derive the exact closed-form solution that minimizes $\\mathcal{L}(\\dot{\\mathbf{q}})$.
+
+#### Step 3.1: Expand the Euclidean Norms into Quadratic Forms
+Recall that for any vector $\\mathbf{x}$, $\\|\\mathbf{x}\\|^2 = \\mathbf{x}^T \\mathbf{x}$.
+
+$$\\mathcal{L}(\\dot{\\mathbf{q}}) = \\frac{1}{2} (\\mathbf{J}\\dot{\\mathbf{q}} - \\mathbf{v}^*)^T (\\mathbf{J}\\dot{\\mathbf{q}} - \\mathbf{v}^*) + \\frac{1}{2} \\lambda^2 \\dot{\\mathbf{q}}^T \\dot{\\mathbf{q}}$$
+
+Expanding the transpose:
+$$\\mathcal{L}(\\dot{\\mathbf{q}}) = \\frac{1}{2} \\left[ (\\dot{\\mathbf{q}}^T \\mathbf{J}^T - {\\mathbf{v}^*}^T)(\\mathbf{J}\\dot{\\mathbf{q}} - \\mathbf{v}^*) + \\lambda^2 \\dot{\\mathbf{q}}^T \\dot{\\mathbf{q}} \\right]$$
+$$= \\frac{1}{2} \\left[ \\dot{\\mathbf{q}}^T \\mathbf{J}^T \\mathbf{J} \\dot{\\mathbf{q}} - {\\mathbf{v}^*}^T \\mathbf{J}\\dot{\\mathbf{q}} - \\dot{\\mathbf{q}}^T \\mathbf{J}^T \\mathbf{v}^* + {\\mathbf{v}^*}^T \\mathbf{v}^* + \\lambda^2 \\dot{\\mathbf{q}}^T \\dot{\\mathbf{q}} \\right]$$
+
+Since ${\\mathbf{v}^*}^T \\mathbf{J}\\dot{\\mathbf{q}}$ is a scalar, its transpose is equal to itself: ${\\mathbf{v}^*}^T \\mathbf{J}\\dot{\\mathbf{q}} = \\dot{\\mathbf{q}}^T \\mathbf{J}^T \\mathbf{v}^*$. Combining:
+$$\\mathcal{L}(\\dot{\\mathbf{q}}) = \\frac{1}{2} \\dot{\\mathbf{q}}^T \\left(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n\\right) \\dot{\\mathbf{q}} - \\dot{\\mathbf{q}}^T \\mathbf{J}^T \\mathbf{v}^* + \\frac{1}{2} {\\mathbf{v}^*}^T \\mathbf{v}^*$$
+
+#### Step 3.2: Take the Gradient with Respect to $\\dot{\\mathbf{q}}$
+Using standard matrix calculus rules:
+* $\\nabla_{\\mathbf{x}} (\\mathbf{x}^T \\mathbf{A} \\mathbf{x}) = 2 \\mathbf{A} \\mathbf{x}$ (for symmetric $\\mathbf{A}$)
+* $\\nabla_{\\mathbf{x}} (\\mathbf{x}^T \\mathbf{b}) = \\mathbf{b}$
+
+$$\\nabla_{\\dot{\\mathbf{q}}} \\mathcal{L} = (\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n) \\dot{\\mathbf{q}} - \\mathbf{J}^T \\mathbf{v}^*$$
+
+#### Step 3.3: Set the Gradient to Zero (Optimality Condition)
+$$\\nabla_{\\dot{\\mathbf{q}}} \\mathcal{L} = \\mathbf{0} \\implies (\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n) \\dot{\\mathbf{q}} = \\mathbf{J}^T \\mathbf{v}^*$$
+
+Because $\\mathbf{J}^T \\mathbf{J}$ is positive semi-definite and $\\lambda^2 \\mathbf{I}_n$ is strictly positive definite for any $\\lambda > 0$, the sum $(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)$ is **guaranteed to be strictly positive definite and invertible**, even if $\\mathbf{J}$ is singular!
+
+Multiplying by the inverse gives the **Joint-Space DLS Solution**:
+$$\\mathbf{\\dot{q}^* = (\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)^{-1} \\mathbf{J}^T \\mathbf{v}^*}$$
+
+---
+
+### 4. The Dual Identity (Task-Space vs. Joint-Space Formulation)
+
+There is a fundamental linear algebra identity linking the $n \\times n$ joint-space matrix to an $m \\times m$ task-space matrix:
+$$(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)^{-1} \\mathbf{J}^T \\equiv \\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m)^{-1}$$
+
+#### Proof of the Dual Identity:
+Start with the obvious matrix equality:
+$$\\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m) = (\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n) \\mathbf{J}^T$$
+*(Expand both sides: $\\mathbf{J}^T \\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{J}^T = \\mathbf{J}^T \\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{J}^T$, which is trivially true).*
+
+Now, multiply both sides from the left by $(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)^{-1}$:
+$$(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)^{-1} \\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m) = \\mathbf{J}^T$$
+
+Finally, multiply both sides from the right by $(\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m)^{-1}$:
+$$\\mathbf{(\\mathbf{J}^T \\mathbf{J} + \\lambda^2 \\mathbf{I}_n)^{-1} \\mathbf{J}^T = \\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m)^{-1}} \\quad \\blacksquare$$
+
+#### Why This Identity Matters in Production Robotics:
+* **Joint-Space Form**: Inverts an **$n \\times n$** matrix (where $n$ is joint count).
+* **Task-Space Form**: Inverts an **$m \\times m$** matrix (where $m$ is Cartesian task dimension).
+
+On the **7-DoF Unitree G1 arm** tracking a 3D hand position:
+* $n = 7$ joints, $m = 3$ Cartesian coordinates.
+* Joint-space requires inverting a **$7 \\times 7$** matrix ($O(7^3) = 343$ operations).
+* Task-space requires inverting a **$3 \\times 3$** matrix ($O(3^3) = 27$ operations)!
+
+The task-space formulation is **over $12\\times$ faster** and mathematically identical! Hence, robotics controllers define the Damped Pseudoinverse $\\mathbf{J}^\\dagger_{\\text{DLS}}$ as:
+$$\\mathbf{J}^\\dagger_{\\text{DLS}} = \\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_m)^{-1}$$
+
+---
+
+### 5. SVD Filter Perspective: Why DLS Never Explodes
+
+To understand the beauty of DLS, look at it through the **Singular Value Decomposition (SVD)**:
+$$\\mathbf{J} = \\sum_{i=1}^m \\sigma_i \\mathbf{u}_i \\mathbf{v}_i^T$$
+
+Where $\\sigma_i \\ge 0$ are the singular values, $\\mathbf{u}_i$ are Cartesian output directions, and $\\mathbf{v}_i$ are joint input directions.
+
+#### Pure Inversion vs. Damped Pseudoinverse:
+* **Pure Inversion**:
+  $$\\mathbf{J}^{-1} = \\sum_{i=1}^m \\left( \\frac{1}{\\sigma_i} \\right) \\mathbf{v}_i \\mathbf{u}_i^T$$
+  As $\\sigma_i \\to 0$, the amplification gain $\\frac{1}{\\sigma_i} \\to \\infty$!
+* **Damped Least Squares**:
+  $$\\mathbf{J}^\\dagger_{\\text{DLS}} = \\sum_{i=1}^m \\left( \\frac{\\sigma_i}{\\sigma_i^2 + \\lambda^2} \\right) \\mathbf{v}_i \\mathbf{u}_i^T$$
+
+Look at the **DLS Filter Function** $f(\\sigma) = \\frac{\\sigma}{\\sigma^2 + \\lambda^2}$:
+
+```text
+ Gain f(σ)
+    ▲
+1/(2λ) ───────╮ (Peak at σ = λ)
+    │        / ╲
+    │       /   ╲─────── Pure Inversion (1/σ)
+    │      /     
+    │     /  DLS Filter: σ / (σ² + λ²)
+    │    /
+    │   /
+    └──┴──────┴─────────────► Singular value σ
+       0      λ
+```
+
+1. **When $\\sigma \\gg \\lambda$ (Far from Singularity)**:  
+   $\\sigma^2 + \\lambda^2 \\approx \\sigma^2$, so $f(\\sigma) \\approx \\frac{\\sigma}{\\sigma^2} = \\frac{1}{\\sigma}$.  
+   DLS behaves **identically to pure inversion**—zero tracking error!
+2. **When $\\sigma = \\lambda$ (Transition Zone)**:  
+   $f(\\lambda) = \\frac{\\lambda}{\\lambda^2 + \\lambda^2} = \\mathbf{\\frac{1}{2\\lambda}}$.  
+   This is the absolute maximum amplification possible anywhere in the universe!
+3. **When $\\sigma \\to 0$ (Deep Inside Singularity)**:  
+   $f(\\sigma) \\approx \\frac{\\sigma}{\\lambda^2} \\longrightarrow \\mathbf{0}$!  
+   Instead of blowing up to infinity, **the joint velocity smoothly decays to zero**! The robot simply refuses to move in the physically impossible direction while remaining 100% free to move tangentially.
+
+---
+
+### 6. Adaptive Damping (Nakamura & Hanafusa, 1986)
+
+A constant damping factor $\\lambda$ has one drawback: even in well-conditioned postures, it introduces a microscopic tracking error.
+
+To achieve **zero tracking error everywhere except near singularities**, Yoshihiko Nakamura and Hideo Hanafusa introduced **Manipulability-Based Adaptive Damping**:
+
+$$\\lambda^2 = \\begin{cases} 0 & \\text{if } w(\\mathbf{q}) \\ge w_0 \\\\ \\lambda_0^2 \\left(1 - \\frac{w(\\mathbf{q})}{w_0}\\right)^2 & \\text{if } w(\\mathbf{q}) < w_0 \\end{cases}$$
 
 Where:
-* $\\lambda$ is the **damping coefficient** (e.g. $\\lambda = 0.05$).
-* $I$ is the identity matrix.
+* $w(\\mathbf{q}) = |\\det(\\mathbf{J})| = l_1 l_2 |\\sin(q_2)|$ is the Yoshikawa manipulability from Lesson 3.2.
+* $w_0$ is the safety threshold (e.g. $w_0 = 0.15$).
+* $\\lambda_0$ is the maximum damping at the singularity boundary (e.g. $\\lambda_0 = 0.08$).
 
-#### Why DLS Never Fails:
-* Far from singularities: $\\lambda^2 \\ll \\det(J)$, so $J^\\dagger \\approx J^{-1}$ (perfect tracking).
-* Near singularities: $\\lambda^2$ prevents the denominator from approaching zero, keeping $\\dot{q}$ strictly bounded!
+When the arm is bent comfortably ($w \\ge w_0$), $\\lambda = 0$ (exact precision). As the arm straightens past $w_0$, $\\lambda$ smoothly ramps up from $0$ to $\\lambda_0$, providing seamless numerical stability without a single jerk!
 
-This is the exact algorithm running in `run_sim.py` for the Unitree G1 humanoid!"""
+---
+
+### 7. Concrete Numerical Walkthrough: Hand Calculation
+
+Let us compute a side-by-side comparison between **Pure Inversion** and **Damped Least Squares** at a near-singularity configuration.
+
+#### Given Parameters:
+* Link lengths: $l_1 = 1.0\\text{ m}$, $l_2 = 1.0\\text{ m}$.
+* Near-singularity configuration: $q_1 = 30^\\circ$, $q_2 = 5^\\circ = 0.08727\\text{ rad}$.
+* Commanded Cartesian velocity: $\\mathbf{v}^* = [0.1, 0.0]^T\\text{ m/s}$ (moving horizontally forward).
+* Damping factor: $\\lambda = 0.1 \\implies \\lambda^2 = 0.01$.
+
+#### Step 1: Compute $\\mathbf{J}(\\mathbf{q})$
+* $q_1 + q_2 = 35^\\circ$.
+* $\\cos(30^\\circ) = 0.8660, \\quad \\cos(35^\\circ) = 0.8192$.
+* $\\sin(30^\\circ) = 0.5000, \\quad \\sin(35^\\circ) = 0.5736$.
+
+$$\\mathbf{J} = \\begin{bmatrix} -1.0(0.8660) - 1.0(0.8192) & -1.0(0.8192) \\\\ 1.0(0.5000) + 1.0(0.5736) & 1.0(0.5736) \\end{bmatrix} = \\begin{bmatrix} -1.6852 & -0.8192 \\\\ 1.0736 & 0.5736 \\end{bmatrix}$$
+
+Determinant:
+$$\\det(\\mathbf{J}) = -l_1 l_2 \\sin(q_2) = -(1.0)(1.0)\\sin(5^\\circ) = \\mathbf{-0.08716}$$
+
+#### Step 2: Pure Matrix Inversion Result
+$$\\mathbf{J}^{-1} = \\frac{1}{-0.08716} \\begin{bmatrix} 0.5736 & 0.8192 \\\\ -1.0736 & -1.6852 \\end{bmatrix} = \\begin{bmatrix} -6.581 & -9.399 \\\\ 12.318 & 19.335 \\end{bmatrix}$$
+
+$$\\dot{\\mathbf{q}}_{\\text{pure}} = \\mathbf{J}^{-1} \\begin{bmatrix} 0.1 \\\\ 0.0 \\end{bmatrix} = \\mathbf{\\begin{bmatrix} -0.6581 \\\\ +1.2318 \\end{bmatrix}\\text{ rad/s}}$$
+
+*(Notice: at $q_2 = 0.5^\\circ$, pure inversion explodes to $\\dot{\\mathbf{q}} = [-6.5, +12.3]\\text{ rad/s}$, and at $0.05^\\circ$, over $120\\text{ rad/s}$!)*
+
+#### Step 3: Damped Least Squares Calculation (Task-Space Form)
+Compute $\\mathbf{A} = \\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I}_2$:
+
+$$\\mathbf{J} \\mathbf{J}^T = \\begin{bmatrix} (-1.6852)^2 + (-0.8192)^2 & (-1.6852)(1.0736) + (-0.8192)(0.5736) \\\\ (-1.6852)(1.0736) + (-0.8192)(0.5736) & (1.0736)^2 + (0.5736)^2 \\end{bmatrix}$$
+$$= \\begin{bmatrix} 2.8399 + 0.6711 & -1.8092 - 0.4699 \\\\ -1.8092 - 0.4699 & 1.1526 + 0.3290 \\end{bmatrix} = \\begin{bmatrix} 3.5110 & -2.2791 \\\\ -2.2791 & 1.4816 \\end{bmatrix}$$
+
+Add damping $\\lambda^2 \\mathbf{I}_2 = \\begin{bmatrix} 0.01 & 0 \\\\ 0 & 0.01 \\end{bmatrix}$:
+$$\\mathbf{A} = \\mathbf{J} \\mathbf{J}^T + 0.01 \\mathbf{I} = \\begin{bmatrix} 3.5210 & -2.2791 \\\\ -2.2791 & 1.4916 \\end{bmatrix}$$
+
+Invert $\\mathbf{A}$:
+$$\\det(\\mathbf{A}) = (3.5210)(1.4916) - (-2.2791)^2 = 5.2520 - 5.1943 = \\mathbf{0.0577}$$
+
+$$\\mathbf{A}^{-1} = \\frac{1}{0.0577} \\begin{bmatrix} 1.4916 & 2.2791 \\\\ 2.2791 & 3.5210 \\end{bmatrix} = \\begin{bmatrix} 25.85 & 39.50 \\\\ 39.50 & 61.02 \\end{bmatrix}$$
+
+Now multiply by $\\mathbf{J}^T$:
+$$\\mathbf{J}^\\dagger_{\\text{DLS}} = \\mathbf{J}^T \\mathbf{A}^{-1} = \\begin{bmatrix} -1.6852 & 1.0736 \\\\ -0.8192 & 0.5736 \\end{bmatrix} \\begin{bmatrix} 25.85 & 39.50 \\\\ 39.50 & 61.02 \\end{bmatrix} = \\begin{bmatrix} -1.161 & -1.060 \\\\ 1.482 & 2.646 \\end{bmatrix}$$
+
+Compute DLS joint velocity:
+$$\\dot{\\mathbf{q}}_{\\text{DLS}} = \\mathbf{J}^\\dagger_{\\text{DLS}} \\begin{bmatrix} 0.1 \\\\ 0.0 \\end{bmatrix} = \\mathbf{\\begin{bmatrix} -0.1161 \\\\ +0.1482 \\end{bmatrix}\\text{ rad/s}}$$
+
+#### The Revelation:
+Look at the joint velocities:
+* Pure Inversion: $\\dot{q}_2 = +1.2318\\text{ rad/s}$ (and rapidly growing towards infinity).
+* Damped Least Squares: $\\dot{q}_2 = +0.1482\\text{ rad/s}$!
+* The joint velocity is **strictly bounded**, completely preventing the violent teleportation and shaking you observed earlier!
+
+---
+
+### 8. Upcoming Practical Lab (`03_dls_inverse.py`)
+
+In the upcoming lab, you will:
+1. Create `03_dls_inverse.py`.
+2. Implement the DLS damped pseudoinverse:
+   $$\\mathbf{J}^\\dagger_{\\text{DLS}} = \\mathbf{J}^T (\\mathbf{J} \\mathbf{J}^T + \\lambda^2 \\mathbf{I})^{-1}$$
+3. Run the exact same trajectory where pure inversion exploded and teleported.
+4. Watch the arm glide gracefully to the edge of its workspace without a single hitch, stutter, or numerical crash!"""
     },
     {
         "id": "3.4",
