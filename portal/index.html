@@ -18,9 +18,9 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260924_hud6">
 </head>
-<body>
+<body class="preload">
   <div class="app-container">
     <!-- Top Header & Level/XP HUD -->
     <header class="top-header">
@@ -41,6 +41,7 @@
       <!-- 1-Word Tabs -->
       <div class="header-center">
         <nav class="view-toggle">
+          <button id="btnViewOverview" class="nav-btn active">Overview</button>
           <button id="btnViewLessons" class="nav-btn">Lessons</button>
           <button id="btnViewDaily" class="nav-btn">Daily</button>
           <button id="btnViewPractice" class="nav-btn">Practice</button>
@@ -101,7 +102,7 @@
     <!-- Main Workspace -->
     <div class="workspace">
       <!-- Left Sidebar Navigation (Collapsible) -->
-      <aside class="sidebar" id="sidebar">
+      <aside class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header-row">
           <div class="sidebar-section-title">LESSONS TREE</div>
           <span class="sidebar-hint">Press '[' to toggle</span>
@@ -120,54 +121,128 @@
       <!-- Main Content Area -->
       <main class="content-pane overview-active" id="contentPane">
         
-        <!-- View 0: 3D Landing Page (Kinematic Evolution) -->
-        <section id="overviewView" class="view-section active overview-fullbleed">
-          <div id="canvas3DContainer" class="canvas-3d-container"></div>
+        <!-- View 0: UNILAB Modern Interactive Hero Landing -->
+        <section id="overviewView" class="view-section active overview-fullbleed hero-landing-view">
           
-          <!-- Floating Minimalist Inspection Card -->
-          <div class="phase-inspect-card" id="phaseInspectCard">
-            <div class="inspect-top-row">
-              <span class="inspect-phase-tag" id="inspectPhaseTag">PHASE 1 // THE DOT</span>
-              <span class="inspect-xp-badge" id="inspectXpBadge">+200 XP</span>
-            </div>
-            <h2 class="inspect-title" id="inspectTitle">1-DoF Inverted Pendulum</h2>
-            <p class="inspect-desc" id="inspectDesc">
-              First-principles mechanics: generalized coordinates, gravity torque, and closed-loop PD disturbance rejection.
-            </p>
-            <div class="inspect-formula" id="inspectFormula">
-              $$\tau(t) = K_p \cdot (q_{\text{target}} - q) - K_d \cdot \dot{q}$$
-            </div>
-            <div class="inspect-actions">
-              <button class="inspect-launch-btn" id="btnLaunchPhase">Enter Phase &rarr;</button>
-              <span class="inspect-status" id="inspectStatus">Completed ✓</span>
-            </div>
-          </div>
+          <!-- Scrollable Track (drives the scroll animation smoothly) -->
+          <div class="hero-scroll-track" id="heroScrollTrack">
+            
+            <!-- Sticky 100vh Viewport Stage (Full-bleed, zero black bars) -->
+            <div class="hero-sticky-stage hero-intro" id="heroStickyStage">
+              
+              <!-- Background Robot Layer -->
+              <div class="hero-bg-container">
+                <img src="assets/hero_robot.jpg?v=20260924_hud2" alt="UNILAB Robot Hero" class="hero-bg-img" id="heroBgImg">
+                <div class="hero-grid-overlay"></div>
+                <div class="hero-radial-glow"></div>
+                <!-- Dynamic Blur & Vignette Layer -->
+                <div class="hero-blur-layer" id="heroBlurLayer"></div>
+                <!-- Solid Black Curtain (Unveils letters on black, then turns into blur overlay) -->
+                <div class="hero-darkness-curtain" id="heroDarknessCurtain"></div>
+              </div>
 
-          <!-- Bottom Phase Navigation Dock -->
-          <div class="phase-dock-container">
-            <div class="phase-dock" id="phaseDock">
-              <button class="phase-dock-btn active" data-phase="1">
-                <span class="dock-num">1</span>
-                <span class="dock-label">The Dot</span>
-              </button>
-              <button class="phase-dock-btn" data-phase="2">
-                <span class="dock-num">2</span>
-                <span class="dock-label">The Line</span>
-              </button>
-              <button class="phase-dock-btn" data-phase="3">
-                <span class="dock-num">3</span>
-                <span class="dock-label">The Shape</span>
-              </button>
-              <button class="phase-dock-btn" data-phase="4">
-                <span class="dock-num">4</span>
-                <span class="dock-label">The Vision</span>
-              </button>
-              <button class="phase-dock-btn" data-phase="5">
-                <span class="dock-num">5</span>
-                <span class="dock-label">The Humanoid</span>
-              </button>
+              <!-- Center UNILAB Hero Brand (Slides Up and Fades on Scroll) -->
+              <div class="hero-brand-center" id="heroBrandCenter">
+                <h1 class="hero-unilab-title" aria-label="UNILAB">
+                  <span class="unveil-char" style="--drape-delay: 0.02s;">U</span>
+                  <span class="unveil-char" style="--drape-delay: 0.05s;">N</span>
+                  <span class="unveil-char" style="--drape-delay: 0.00s;">I</span>
+                  <span class="unveil-char" style="--drape-delay: 0.06s;">L</span>
+                  <span class="unveil-char" style="--drape-delay: 0.01s;">A</span>
+                  <span class="unveil-char" style="--drape-delay: 0.04s;">B</span>
+                </h1>
+                <p class="hero-unilab-tagline">PHYSICS ENGINE &bull; SPATIAL KINEMATICS &bull; ROBOTIC INTELLIGENCE</p>
+                <div class="hero-scroll-indicator" id="heroScrollIndicator">
+                  <span class="scroll-mouse-icon">
+                    <span class="scroll-wheel-dot"></span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- SVG Leader Lines Caliper Canvas -->
+              <svg class="hero-leader-lines-svg" id="heroLeaderLinesSvg"></svg>
+
+              <!-- Floating Flank Cards & Robot Target Pins (Flanks: Zero Overlap) -->
+              <div class="hero-tooltips-overlay" id="heroTooltipsOverlay">
+                
+                <!-- Left Flank Cards (Docked safely in left negative space) -->
+                <div class="flank-card flank-left card-perception" id="cardPerception" data-pin="pinVisor">
+                  <div class="card-header">
+                    <span class="card-tag">PERCEPTION // 01</span>
+                    <span class="card-status-dot"></span>
+                  </div>
+                  <h3 class="card-title">Active Multi-Spectral Optic</h3>
+                  <p class="card-desc">Stereo depth & thermal vision with 120 FPS eye-to-hand calibration matrix.</p>
+                  <div class="card-metric">LATENCY: <strong>1.6 ms</strong> &bull; RES: <strong>1080p RGB-IR</strong></div>
+                </div>
+
+                <div class="flank-card flank-left card-actuation" id="cardActuation" data-pin="pinNeck">
+                  <div class="card-header">
+                    <span class="card-tag">ACTUATION // 02</span>
+                    <span class="card-status-dot"></span>
+                  </div>
+                  <h3 class="card-title">Dual-Axis Cervical Drive</h3>
+                  <p class="card-desc">Segmented vertebrae direct-drive gimbal with 65 Nm peak torque.</p>
+                  <div class="card-metric">ENCODER: <strong>19-bit Absolute</strong> &bull; AXES: <strong>2-DoF</strong></div>
+                </div>
+
+                <!-- Right Flank Cards (Docked safely in right negative space) -->
+                <div class="flank-card flank-right card-physics" id="cardPhysics" data-pin="pinCranial">
+                  <div class="card-header">
+                    <span class="card-tag">PHYSICS CORE // 03</span>
+                    <span class="card-status-dot"></span>
+                  </div>
+                  <h3 class="card-title">Real-Time MuJoCo Engine</h3>
+                  <p class="card-desc">1 kHz semi-implicit Euler integration & minimal generalized coordinates.</p>
+                  <div class="card-metric">TICK: <strong>1,000 Hz</strong> &bull; SOLVER: <strong>Newton</strong></div>
+                </div>
+
+                <div class="flank-card flank-right card-kinematics" id="cardKinematics" data-pin="pinShoulder">
+                  <div class="card-header">
+                    <span class="card-tag">KINEMATICS // 04</span>
+                    <span class="card-status-dot"></span>
+                  </div>
+                  <h3 class="card-title">Damped Least Squares (DLS)</h3>
+                  <p class="card-desc">Singularity-robust spatial velocity mapping with regularized pseudoinverse.</p>
+                  <div class="card-metric">DoF: <strong>7-Axis Spatial</strong> &bull; STABILITY: <strong>Bounded</strong></div>
+                </div>
+
+                <!-- Pinpoint Target Reticles Directly on Robot Landmarks -->
+                <div class="robot-pin" id="pinVisor" data-card="cardPerception">
+                  <span class="pin-ring"></span>
+                  <span class="pin-dot"></span>
+                </div>
+
+                <div class="robot-pin" id="pinNeck" data-card="cardActuation">
+                  <span class="pin-ring"></span>
+                  <span class="pin-dot"></span>
+                </div>
+
+                <div class="robot-pin" id="pinCranial" data-card="cardPhysics">
+                  <span class="pin-ring"></span>
+                  <span class="pin-dot"></span>
+                </div>
+
+                <div class="robot-pin" id="pinShoulder" data-card="cardKinematics">
+                  <span class="pin-ring"></span>
+                  <span class="pin-dot"></span>
+                </div>
+
+              </div>
+
+              <!-- Minimalist Floating Pill Dock -->
+              <div class="hero-bottom-dock" id="heroBottomDock">
+                <div class="minimal-dock-pill">
+                  <div class="dock-status-indicator">
+                    <span class="dock-pulse-dot"></span>
+                    <span class="dock-label">PHASE 3 &bull; LAB 3.3</span>
+                  </div>
+                  <span class="dock-divider"></span>
+                  <button class="dock-resume-btn" id="btnHeroEnterLab">Resume Lab</button>
+                </div>
+              </div>
+
             </div>
-            <div class="dock-hint">Drag mouse to orbit 3D space &bull; Scroll to zoom &bull; Click models to inspect</div>
           </div>
         </section>
 
@@ -266,8 +341,8 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Bulletproof Data Loading & 3D Stage Engine -->
-  <script src="data.js?v=20260922_1"></script>
-  <script src="scene3d.js?v=20260922_1"></script>
-  <script src="app.js?v=20260922_1"></script>
+  <script src="data.js?v=20260924_hud6"></script>
+  <script src="scene3d.js?v=20260924_hud6"></script>
+  <script src="app.js?v=20260924_hud6"></script>
 </body>
 </html>

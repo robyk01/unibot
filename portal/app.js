@@ -44,10 +44,10 @@ async function initApp() {
     updateGamificationHUD();
     checkDiskSync();
     
-    // Restore user's active view, defaulting to lessons view
-    const savedView = localStorage.getItem("robotics_active_view") || "lessons";
-    if (savedView === "overview") {
-      showOverviewView();
+    // Restore user's active view, defaulting to overview landing page
+    const savedView = localStorage.getItem("robotics_active_view") || "overview";
+    if (savedView === "lessons") {
+      showLessonsView();
     } else if (savedView === "daily") {
       showDailyView();
     } else if (savedView === "practice") {
@@ -57,8 +57,13 @@ async function initApp() {
     } else if (savedView === "glossary") {
       showGlossaryView();
     } else {
-      showLessonsView();
+      showOverviewView();
     }
+
+    // Smoothly remove preload protection so subsequent user actions animate normally
+    setTimeout(() => {
+      document.body.classList.remove("preload");
+    }, 120);
   } catch (err) {
     console.error("Critical error in initApp:", err);
   }
@@ -796,8 +801,10 @@ function deactivateAllTabs() {
 function showOverviewView() {
   deactivateAllTabs();
   localStorage.setItem("robotics_active_view", "overview");
+  const btn = document.getElementById("btnViewOverview");
   const view = document.getElementById("overviewView");
   const contentPane = document.getElementById("contentPane");
+  if (btn) btn.classList.add("active");
   if (view) view.classList.add("active");
   if (contentPane) contentPane.classList.add("overview-active");
   if (typeof initScene3D === "function") {
@@ -912,12 +919,14 @@ function setupEventListeners() {
     }
   });
 
+  const btnO = document.getElementById("btnViewOverview");
   const btnL = document.getElementById("btnViewLessons");
   const btnD = document.getElementById("btnViewDaily");
   const btnP = document.getElementById("btnViewPractice");
   const btnS = document.getElementById("btnViewScratchpad");
   const btnG = document.getElementById("btnViewGlossary");
 
+  if (btnO) btnO.addEventListener("click", showOverviewView);
   if (btnL) btnL.addEventListener("click", showLessonsView);
   if (btnD) btnD.addEventListener("click", showDailyView);
   if (btnP) btnP.addEventListener("click", showPracticeView);
